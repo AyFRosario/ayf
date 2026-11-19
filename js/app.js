@@ -178,14 +178,25 @@ function pantallaAltaNegocio(u) {
     </form>
     <button class="btn-texto" id="btnSalir">Salir</button>`);
   $("#btnSalir").onclick = () => auth.logout();
-  $("#fAlta").onsubmit = (e) => {
+  $("#fAlta").onsubmit = async (e) => {
     e.preventDefault();
     const ahora = Date.now();
-    db.batch([
+    const ops = [
       { op: "set", col: "_negocio", id: CONFIG.negocioId, data: { nombre: $("#aNeg").value.trim(), owner: u.uid, creado: ahora } },
       { op: "set", col: "usuarios", id: u.uid, data: { nombre: $("#aNom").value.trim(), email: u.email || "", rol: "dueno", activo: true, creado: ahora } },
-    ]);
+    ];
+    // Esperar a que el servidor confirme antes de abrir la app: si los
+    // listados se piden antes de que exista el usuario, las reglas los rechazan.
+    limpiar();
     cargando("Creando negocio…");
+    await db.batch(ops);
+    const ok = await db.get("usuarios", u.uid).catch(() => null);
+    if (ok) location.reload();
+    else {
+      pantalla(`<p class="error">No se pudo crear el negocio. Revisá que las reglas de Firestore estén publicadas (archivo firestore.rules).</p>
+        <button class="btn btn-bloque" id="btnReint">Reintentar</button>`);
+      $("#btnReint").onclick = () => location.reload();
+    }
   };
 }
 
