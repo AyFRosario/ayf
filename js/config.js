@@ -17,12 +17,21 @@ export const CONFIG = {
   negocioId: "af",                       // id del negocio en Firestore (negocios/af)
   arcaUrl: "https://www.arca.gob.ar/",   // botón "Facturar en ARCA"
   firebase: null,
-  // firebase: {
-  //   apiKey: "…",
-  //   authDomain: "…firebaseapp.com",
-  //   projectId: "…",
-  //   storageBucket: "…appspot.com",
-  //   messagingSenderId: "…",
-  //   appId: "…"
-  // },
+  // Import the functions you need from the SDKs you need
+import { initializeApp } from "firebase/app";
+// TODO: Add SDKs for Firebase products that you want to use
+// https://firebase.google.com/docs/web/setup#available-libraries
+
+// Your web app's Firebase configuration
+const firebaseConfig = {
+  apiKey: "AIzaSyCtkT0ZaCEglGuZ-tWUqNFU5vLcYZdWSg8",
+  authDomain: "ayfrosario.firebaseapp.com",
+  projectId: "ayfrosario",
+  storageBucket: "ayfrosario.firebasestorage.app",
+  messagingSenderId: "757276598234",
+  appId: "1:757276598234:web:d4be0f3b3880b5df7b2ae3"
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);,
 };
