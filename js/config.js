@@ -12,12 +12,7 @@
 // Aunque haya configuración, abriendo la app con ?demo en la
 // dirección se fuerza el modo demo.
 
-export const CONFIG = {
-  version: "0.1.0",
-  negocioId: "af",                       // id del negocio en Firestore (negocios/af)
-  arcaUrl: "https://www.arca.gob.ar/",   // botón "Facturar en ARCA"
-  firebase: null,
-  // Import the functions you need from the SDKs you need
+// Import the functions you need from the SDKs you need
 import { initializeApp } from "firebase/app";
 // TODO: Add SDKs for Firebase products that you want to use
 // https://firebase.google.com/docs/web/setup#available-libraries
@@ -33,5 +28,4 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase
-const app = initializeApp(firebaseConfig);,
-};
+const app = initializeApp(firebaseConfig);
