@@ -1,0 +1,103 @@
+rules_version = '2';
+
+// ============================================================
+//  A&F · Reglas de seguridad de Firestore
+// ============================================================
+// Los roles se controlan acá, en el servidor, y no solo escondiendo
+// menús: aunque alguien abra la consola del navegador, no puede
+// hacer lo que su rol no permite.
+//
+// Roles: dueno · encargado · mozo · cocina
+// Publicar: Consola de Firebase → Firestore → Reglas → pegar → Publicar
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function autenticado() { return request.auth != null; }
+    function rutaUsuario(nid) { return /databases/$(database)/documents/negocios/$(nid)/usuarios/$(request.auth.uid); }
+    function perfil(nid) { return get(rutaUsuario(nid)).data; }
+    function miembro(nid) { return autenticado() && exists(rutaUsuario(nid)) && perfil(nid).activo == true; }
+    function rol(nid, roles) { return miembro(nid) && perfil(nid).rol in roles; }
+    function gestion(nid) { return rol(nid, ['dueno', 'encargado']); }
+    function personal(nid) { return rol(nid, ['dueno', 'encargado', 'mozo']); }
+    function soloCambia(campos) { return request.resource.data.diff(resource.data).affectedKeys().hasOnly(campos); }
+    function mozoCobra(nid) {
+      let c = /databases/$(database)/documents/negocios/$(nid)/config/general;
+      return exists(c) && get(c).data.get('mozoCobra', false) == true;
+    }
+    function cobra(nid) { return gestion(nid) || (rol(nid, ['mozo']) && mozoCobra(nid)); }
+
+    match /negocios/{nid} {
+      allow read: if autenticado();
+      // El primero que entra crea el negocio y queda como dueño
+      allow create: if autenticado() && request.resource.data.owner == request.auth.uid;
+      allow update: if rol(nid, ['dueno']) && request.resource.data.owner == resource.data.owner;
+
+      match /usuarios/{uid} {
+        allow read: if miembro(nid) || (autenticado() && uid == request.auth.uid);
+        // Alta inicial: quien creó el negocio se registra como dueño
+        allow create: if autenticado() && uid == request.auth.uid
+          && request.resource.data.rol == 'dueno'
+          && getAfter(/databases/$(database)/documents/negocios/$(nid)).data.owner == request.auth.uid;
+        allow create, delete: if rol(nid, ['dueno']);
+        allow update: if rol(nid, ['dueno']) || (uid == request.auth.uid && miembro(nid) && soloCambia(['nombre']));
+      }
+
+      match /config/{doc} {
+        allow read: if miembro(nid);
+        allow write: if gestion(nid);
+      }
+
+      match /mesas/{id} {
+        allow read: if miembro(nid);
+        allow create, delete: if gestion(nid);
+        // Mozos solo pueden ocupar / liberar / pasar de mesa
+        allow update: if gestion(nid) || (personal(nid) && soloCambia(['comandaId']));
+      }
+
+      match /productos/{id} {
+        allow read: if miembro(nid);
+        allow create, delete: if gestion(nid);
+        // Quien cobra descuenta stock, pero no toca precios
+        allow update: if gestion(nid) || (cobra(nid) && soloCambia(['stock']));
+      }
+
+      match /comandas/{id} {
+        allow read: if miembro(nid);
+        allow create: if personal(nid);
+        allow update: if gestion(nid)
+          || (personal(nid) && request.resource.data.estado in ['abierta', 'cuenta', 'anulada'])
+          || (cobra(nid) && request.resource.data.estado == 'cerrada');
+        allow delete: if gestion(nid);
+      }
+
+      match /items/{id} {
+        allow read: if miembro(nid);
+        allow create: if personal(nid);
+        allow update: if personal(nid)
+          || (rol(nid, ['cocina']) && soloCambia(['estado', 'preparandoTs', 'listoTs', 'entregadoTs', 'cerrado']));
+        allow delete: if personal(nid) && resource.data.estado == 'nuevo';
+      }
+
+      match /ventas/{id} {
+        allow read: if cobra(nid);
+        allow create: if cobra(nid);
+        allow update: if gestion(nid);   // anulaciones
+      }
+
+      match /jornadas/{id} {
+        allow read: if miembro(nid);
+        allow create, update: if gestion(nid);
+      }
+
+      match /movCaja/{id} {
+        allow read, write: if gestion(nid);
+      }
+
+      match /logs/{id} {
+        allow read: if gestion(nid);
+        allow create: if miembro(nid) && request.resource.data.uid == request.auth.uid;
+      }
+    }
+  }
+}
