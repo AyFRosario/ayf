@@ -223,6 +223,40 @@ select.input { appearance: none; background-image: linear-gradient(45deg, transp
 .menu-lista button { display: flex; align-items: center; gap: 14px; text-align: left; padding: 14px 6px; border: 0; border-bottom: 1px solid var(--borde); background: none; font-size: 16px; font-weight: 500; }
 .menu-lista button:last-child { border-bottom: 0; }
 .menu-lista button.peligro { color: var(--rojo); }
+.menu-lista button > span { display: flex; flex-direction: column; gap: 2px; }
+.menu-lista button small { color: var(--texto3); font-size: 12px; font-weight: 400; line-height: 1.35; }
+
+/* ── Importar carta ── */
+@media (min-width: 700px) { .modal.modal-ancho { max-width: 900px; } }
+.input.en-linea { display: inline-block; width: auto; min-height: 32px; padding: 4px 28px 4px 8px; font-size: 13px; }
+.imp-resumen { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 12px 0 10px; }
+.imp-tot { border: 1px solid var(--borde); background: var(--sup); border-radius: var(--radio-s); padding: 10px 6px; font-size: 12px; color: var(--texto2); display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.imp-tot b { font-size: 22px; color: var(--tinta); }
+.imp-tot.nuevo b { color: var(--verde); }
+.imp-tot.cambia b { color: var(--ambar); }
+.imp-tot.error b { color: var(--rojo); }
+.imp-tot.activo { border-color: var(--tinta); box-shadow: inset 0 0 0 1px var(--tinta); }
+.imp-tabla { margin-top: 10px; max-height: 46vh; overflow-y: auto; border: 1px solid var(--borde); border-radius: var(--radio-s); }
+.imp-fila { display: grid; grid-template-columns: 38px 1fr auto 84px; gap: 10px; align-items: center; padding: 8px 10px; border-bottom: 1px solid var(--borde); font-size: 14px; }
+.imp-fila:last-child { border-bottom: 0; }
+.imp-n { font-family: var(--fm); font-size: 12px; color: var(--texto3); }
+.imp-prod { min-width: 0; }
+.imp-prod small { display: block; color: var(--texto3); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.imp-pre { font-family: var(--fm); white-space: nowrap; }
+.imp-pre s { color: var(--texto3); margin-right: 4px; }
+.imp-est { font-size: 11px; font-weight: 700; text-align: center; padding: 3px 6px; border-radius: 999px; background: var(--sup2); color: var(--texto2); }
+.imp-fila.nuevo .imp-est { background: var(--verde-bg); color: var(--verde); }
+.imp-fila.cambia .imp-est { background: var(--ambar-bg); color: var(--ambar); }
+.imp-fila.error { background: var(--rojo-bg); }
+.imp-fila.error .imp-est { background: transparent; color: var(--rojo); text-align: right; }
+.imp-opciones { display: flex; flex-direction: column; gap: 4px; margin-top: 12px; }
+.inicio-carta .fila-botones { justify-content: center; }
+@media (max-width: 599px) {
+  .imp-resumen { grid-template-columns: repeat(2, 1fr); }
+  .imp-fila { grid-template-columns: 1fr auto; }
+  .imp-n { display: none; }
+  .imp-est { grid-column: 1 / -1; justify-self: start; }
+}
 
 /* ── Tarjetas y listas ── */
 .tarjeta { background: var(--sup); border: 1px solid var(--borde); border-radius: var(--radio); padding: 16px; margin-bottom: 14px; }
@@ -240,7 +274,8 @@ select.input { appearance: none; background-image: linear-gradient(45deg, transp
 .pos { color: var(--verde); font-weight: 700; white-space: nowrap; }
 .neg { color: var(--rojo); font-weight: 700; white-space: nowrap; }
 .vacio { text-align: center; padding: 48px 20px; color: var(--texto3); display: flex; flex-direction: column; align-items: center; gap: 12px; }
-.vacio .ico { width: 40px; height: 40px; opacity: 0.5; }
+.vacio > .ico { width: 40px; height: 40px; opacity: 0.5; }
+.vacio .btn:not(.btn-pri) { color: var(--tinta); }
 .vacio p { margin: 0; }
 .vacio.chico { padding: 28px 12px; }
 .barra-acciones { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }

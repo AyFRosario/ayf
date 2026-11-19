@@ -6,6 +6,7 @@ import { db, inc } from "../db.js";
 import { esc, fmt, num, icon, modal, toast, confirmar } from "../util.js";
 import { buscar } from "../buscar.js";
 import { abrirEscaner, escucharLectorUSB, precargarEscaner } from "../scanner.js";
+import { menuExcel, abrirImportador, descargarPlantilla, precargarExcel } from "../importar.js";
 
 export function mount(root) {
   let q = "";
@@ -18,6 +19,7 @@ export function mount(root) {
         <div class="prod-botones">
           <button class="btn" data-act="ingreso">${icon("scan")} Ingreso de mercadería</button>
           <button class="btn" data-act="tanda">${icon("dinero")} Precios en tanda</button>
+          <button class="btn" data-act="excel">${icon("tabla")} Excel</button>
           <button class="btn btn-pri" data-act="nuevo">${icon("mas")} Producto</button>
         </div>
       </div>
@@ -25,6 +27,7 @@ export function mount(root) {
       <div id="pLista"></div>
     </div>`;
   precargarEscaner();
+  if (!S.productos.length) precargarExcel();
 
   function render() {
     const cats = categorias();
@@ -46,7 +49,15 @@ export function mount(root) {
           <b class="fp-precio">${fmt(p.precio)}</b>
         </button>`;
       }).join("")}</div>`
-      : `<div class="vacio">${icon("productos")}<p>${q ? `No encontré "${esc(q)}".` : "No hay productos."}</p></div>`;
+      : q || S.productos.length
+        ? `<div class="vacio">${icon("productos")}<p>${q ? `No encontré "${esc(q)}".` : "No hay productos en este filtro."}</p></div>`
+        : `<div class="vacio inicio-carta">${icon("productos")}
+            <p><b>Todavía no hay productos.</b><br>Cargá la carta desde un Excel o de a uno.</p>
+            <div class="fila-botones">
+              <button class="btn btn-pri" data-act="importar">${icon("subir")} Importar desde Excel</button>
+              <button class="btn" data-act="plantilla">${icon("bajar")} Descargar plantilla</button>
+              <button class="btn" data-act="nuevo">${icon("mas")} Cargar a mano</button>
+            </div></div>`;
   }
 
   // ── Alta / edición ──
@@ -240,6 +251,9 @@ export function mount(root) {
     if (a.dataset.act === "nuevo") editar();
     else if (a.dataset.act === "ingreso") ingreso();
     else if (a.dataset.act === "tanda") tanda();
+    else if (a.dataset.act === "excel") menuExcel();
+    else if (a.dataset.act === "importar") abrirImportador();
+    else if (a.dataset.act === "plantilla") descargarPlantilla();
   });
   const busq = root.querySelector("#pBusq");
   busq.addEventListener("input", () => { q = busq.value.trim(); render(); });

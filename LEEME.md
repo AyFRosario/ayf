@@ -1,4 +1,4 @@
-# A&F · Gestión del bar — versión 0.1
+# A&F · Gestión del bar — versión 0.2
 
 PWA para celular, tablet y PC. HTML, CSS y JS sin compilar, igual que el resto de JPSoft. Se publica en GitHub Pages y usa Firebase (Firestore + Auth) con caché sin conexión.
 
@@ -56,6 +56,23 @@ Cada dispositivo elige su impresora en **Ajustes → Este dispositivo**.
   `"C:\Program Files\Google\Chrome\Application\chrome.exe" --kiosk-printing https://tuusuario.github.io/AF/`
 - En la tablet de cocina, activá **Imprimir solo** en la pantalla de cocina. Con Bluetooth, la primera vez de cada sesión hay que tocar "Conectar impresora".
 - **Antes de comprar la impresora**, conviene que sea térmica ESC/POS con Bluetooth BLE o USB. Las Xprinter, Gprinter y las "58mm Bluetooth" genéricas suelen funcionar.
+
+## 3 bis. Cargar la carta desde Excel
+
+**Productos → Excel** tiene tres opciones:
+
+- **Descargar plantilla:** un Excel con las columnas (Nombre, Categoría, Precio, Prepara, Código de barras, Controla stock, Stock, Stock mínimo, Activo), ejemplos y una hoja de instrucciones. Se lo podés pasar al bar para que lo complete.
+- **Importar desde Excel** (.xlsx, .xls, .csv, .ods):
+  - Reconoce encabezados con otros nombres: "Producto", "Rubro", "Precio ($)", "Cod. barras"…
+  - Entiende precios escritos como `15500`, `15.500` o `$ 15.500`, y los CSV que guarda Excel en Windows.
+  - También acepta una **carta sin encabezados**: una fila con la categoría y abajo los productos con su precio.
+  - Si no dice quién prepara cada producto, lo deduce: bebidas → Barra; latas, botellas o con código → Mozo; el resto → Cocina.
+  - **Antes de guardar muestra qué es nuevo, qué cambia y qué tiene errores**, y descarga una copia de la carta anterior.
+  - Los productos se reconocen por código de barras o por nombre, así que reimportar no duplica nada.
+  - Opciones: ordenar la carta como en el archivo (activada sola cuando el archivo es la carta completa) y desactivar los productos que no están en el archivo (no los borra).
+- **Exportar la carta actual:** sirve de respaldo y para actualizar precios en Excel y volver a importarla.
+
+El lector de Excel (SheetJS) se descarga la primera vez que se usa.
 
 ## 4. Escáner de códigos
 

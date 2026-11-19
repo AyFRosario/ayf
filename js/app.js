@@ -6,6 +6,8 @@ import { initDB, db, auth, MODO, onError } from "./db.js";
 import { S, emit, onStore, puede, ROLES, CONFIG_DEF } from "./store.js";
 import { $, esc, icon, toast, modal, confirmar, iniciales, fmt } from "./util.js";
 import { reconectarImpresora } from "./print.js";
+
+const VERSION = "0.2.0";
 import * as vSalon from "./vistas/salon.js";
 import * as vMesa from "./vistas/mesa.js";
 import * as vCocina from "./vistas/cocina.js";
@@ -236,7 +238,7 @@ function menuUsuario() {
     titulo: S.perfil?.nombre || "Usuario",
     clase: "modal-chico",
     cuerpo: `<p class="ayuda">${esc(ROLES[S.rol] || "")}${S.user?.email && MODO !== "demo" ? " · " + esc(S.user.email) : ""}</p>
-      <p class="ayuda">${MODO === "demo" ? "Modo demo: los datos quedan en este navegador." : "Conectado a Firebase."} Versión ${CONFIG.version}.</p>`,
+      <p class="ayuda">${MODO === "demo" ? "Modo demo: los datos quedan en este navegador." : "Conectado a Firebase."} Versión ${VERSION}.</p>`,
     pie: `<button class="btn btn-bloque" data-salir>${icon("salir")} ${MODO === "demo" ? "Cambiar de usuario" : "Cerrar sesión"}</button>`,
   });
   m.el.querySelector("[data-salir]").onclick = () => { m.cerrar(); auth.logout(); };
