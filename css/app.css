@@ -595,6 +595,118 @@ body:has(.escaner) .toasts { bottom: auto; top: calc(64px + env(safe-area-inset-
 .qr-txt { font-size: 9pt; color: #555; }
 @media (max-width: 599px) { .vista-hoja .hoja-qr { grid-template-columns: repeat(2, 1fr); } }
 
+/* ── v0.6: menú con grupos y "Más" ── */
+.nav-mas { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border: 0; background: none; font-size: 11px; font-weight: 600; color: var(--texto3); min-width: 0; padding: 0; }
+.nav-mas .ico { width: 22px; height: 22px; }
+.nav-mas.activo { color: var(--tinta); }
+.mas-grilla { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; padding-bottom: 6px; }
+.mas-grilla a { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 16px 6px; border-radius: var(--radio); background: var(--papel); text-decoration: none; font-size: 13px; font-weight: 600; text-align: center; }
+.mas-grilla a .ico { width: 26px; height: 26px; }
+.mas-grilla a.activo { background: var(--tinta); color: #fff; }
+.nav-grupo { display: none; }
+@media (min-width: 900px) {
+  .nav-lateral nav { overflow-y: auto; scrollbar-width: none; }
+  .nav-lateral nav a { padding: 9px 12px; }
+  .nav-grupo { display: block; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #8c8d90; padding: 14px 12px 4px; }
+}
+
+/* Componentes chicos */
+.kpis.dos { grid-template-columns: repeat(2, 1fr); }
+@media (min-width: 900px) { .kpis.dos { grid-template-columns: repeat(2, minmax(0, 260px)); } }
+.btn-icono.gira .ico { transform: rotate(180deg); }
+.chips.centrados { justify-content: center; max-width: 560px; }
+.banda.azul { background: var(--azul-bg); color: var(--azul); }
+.boton-banda { width: 100%; border: 0; text-align: left; cursor: pointer; }
+.fila-lista.anulada { opacity: 0.5; }
+.fila-lista.anulada > span { text-decoration: line-through; }
+.input.selector { text-align: left; cursor: pointer; display: flex; align-items: center; }
+.modal-grande .co-linea span:first-child { min-width: 0; }
+@media (min-width: 700px) { .modal.modal-grande { max-width: 780px; } }
+.saldo-cli { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 14px 16px; border-radius: var(--radio); background: var(--papel); margin-bottom: 8px; }
+.saldo-cli small { font-size: 12px; font-weight: 700; color: var(--texto3); text-transform: uppercase; letter-spacing: 0.06em; }
+.saldo-cli b { font-family: var(--fm); font-weight: 500; font-size: 28px; }
+.saldo-cli.debe b { color: var(--rojo); }
+.compras .pestanas, .compras .kpis { margin-bottom: 14px; }
+.respaldo-aviso { flex-wrap: wrap; margin: 12px 0 0; }
+.respaldo-aviso span { flex: 1 1 200px; font-weight: 500; }
+
+/* Cobro a cuenta corriente */
+.co-pago { flex-wrap: wrap; }
+.co-cliente { flex: 1 1 100%; display: flex; align-items: center; gap: 8px; border: 1px solid var(--borde); background: var(--papel); border-radius: var(--radio-s); padding: 9px 12px; font-size: 14px; text-align: left; }
+.co-cliente.falta { border-color: var(--rojo); color: var(--rojo); background: var(--rojo-bg); font-weight: 600; }
+
+/* Reservas */
+.res-dias { display: flex; align-items: center; gap: 4px; }
+.res-dias .input { width: 160px; }
+.reservas h2 { margin: 4px 0 2px; }
+.reservas > .ayuda { margin: 0 0 12px; }
+.res-lista { display: flex; flex-direction: column; gap: 8px; }
+.res-card { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; gap: 6px 14px; align-items: center; background: var(--sup); border: 1px solid var(--borde); border-left: 4px solid var(--ambar); border-radius: var(--radio-s); padding: 12px 10px 12px 14px; }
+.res-card.confirmada { border-left-color: var(--verde); }
+.res-card.sentada { border-left-color: var(--tinta); opacity: 0.65; }
+.res-card.cancelada, .res-card.novino { border-left-color: var(--gris); opacity: 0.5; }
+.res-card.cancelada b, .res-card.novino b { text-decoration: line-through; }
+.res-hora { font-family: var(--fm); font-size: 20px; }
+.res-datos { min-width: 0; }
+.res-datos small { display: block; color: var(--texto3); font-size: 12px; margin-top: 3px; }
+.res-estado.pendiente { color: var(--ambar); font-weight: 700; }
+.res-estado.confirmada { color: var(--verde); font-weight: 700; }
+.res-acciones { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.res-acciones:empty { display: none; }
+@media (max-width: 599px) {
+  .res-card { grid-template-columns: auto minmax(0, 1fr) auto; }
+  .res-menu { grid-column: 3; grid-row: 1; }
+  .res-acciones { grid-column: 1 / -1; grid-row: 2; justify-content: flex-start; }
+  .res-acciones .btn { flex: 1; }
+}
+/* Reservas de hoy en el salón */
+.res-hoy:not(:empty) { margin-bottom: 14px; }
+.res-hoy-cab { display: flex; align-items: center; gap: 8px; font-weight: 700; color: var(--azul); font-size: 14px; margin-bottom: 8px; }
+.res-hoy-cab a { margin-left: auto; font-size: 13px; color: var(--texto2); }
+.res-hoy-lista { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+.res-hoy-lista::-webkit-scrollbar { display: none; }
+.res-chip { flex-shrink: 0; display: flex; align-items: center; gap: 10px; padding: 8px 8px 8px 12px; border-radius: var(--radio-s); background: var(--azul-bg); border: 1px solid #c9d8ef; font-size: 14px; max-width: 86vw; }
+.res-chip span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.res-chip i { font-style: normal; color: var(--texto2); }
+.res-chip.tarde { background: var(--ambar-bg); border-color: #f0d6a8; }
+.res-chip.tarde i { color: var(--ambar); font-weight: 700; }
+.mesa.libre.reservada { border-color: var(--azul); border-style: solid; background: var(--azul-bg); }
+.mesa.libre.reservada .mesa-badge { color: var(--azul); border-color: #c9d8ef; display: inline-flex; align-items: center; gap: 3px; }
+.mesa-badge .ico { width: 11px; height: 11px; vertical-align: -1px; }
+
+/* Nueva compra */
+.nc-agregar { display: flex; gap: 8px; }
+.nc-agregar .btn { flex-shrink: 0; }
+.sugerencias:not(:empty) { border: 1px solid var(--borde); border-radius: var(--radio-s); padding: 0 10px; margin-top: 6px; max-height: 260px; overflow-y: auto; }
+#ncLineas { margin-top: 10px; }
+#ncLineas > .ayuda { margin: 0; }
+.nc-cab, .nc-linea { display: grid; grid-template-columns: minmax(0, 1fr) 110px 120px 96px 36px; gap: 8px; align-items: center; }
+.nc-cab { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--texto3); padding: 0 0 4px; }
+.nc-linea { padding: 8px 0; border-top: 1px solid var(--borde); }
+.nc-nom { min-width: 0; }
+.nc-nom small { display: block; color: var(--texto3); font-size: 12px; }
+.nc-cant { display: flex; align-items: center; gap: 4px; }
+.nc-cant small { color: var(--texto3); font-size: 12px; width: 18px; }
+.nc-linea .input { min-height: 40px; font-family: var(--fm); }
+.nc-sub { font-family: var(--fm); text-align: right; font-size: 14px; }
+.nc-linea .btn-icono { width: 36px; height: 36px; color: var(--texto3); }
+.nc-total { display: flex; justify-content: space-between; align-items: baseline; padding: 12px 0; border-top: 2px solid var(--tinta); }
+.nc-total b { font-family: var(--fm); font-weight: 500; font-size: 24px; }
+@media (max-width: 699px) {
+  .nc-cab { display: none; }
+  .nc-linea { grid-template-columns: 1fr 1fr 36px; grid-template-areas: "nom nom x" "cant costo costo" "sub sub sub"; row-gap: 6px; }
+  .nc-nom { grid-area: nom; } .nc-cant { grid-area: cant; } .nc-linea > .input { grid-area: costo; } .nc-sub { grid-area: sub; } .nc-linea .btn-icono { grid-area: x; }
+}
+
+/* Vencimientos */
+.recordatorios .barra-acciones .ayuda { margin: 0; flex: 1 1 260px; }
+.recordatorios .lista { background: var(--sup); border: 1px solid var(--borde); border-radius: var(--radio); padding: 0 12px; }
+.rec-ico { display: inline-flex; width: 36px; height: 36px; border-radius: 50%; align-items: center; justify-content: center; background: var(--verde-bg); color: var(--verde); flex-shrink: 0; }
+.rec-item.proximo .rec-ico { background: var(--ambar-bg); color: var(--ambar); }
+.rec-item.vencido .rec-ico { background: var(--rojo-bg); color: var(--rojo); }
+.rec-item.vencido small { color: var(--rojo); }
+.fila-lista > .rec-acc { flex: 0 0 auto; display: flex; align-items: center; gap: 4px; }
+
 /* ── Escáner ── */
 .escaner { position: fixed; inset: 0; z-index: 150; background: #000; color: #fff; display: flex; flex-direction: column; }
 .esc-top { display: flex; align-items: center; justify-content: space-between; padding: 8px 8px 8px 16px; padding-top: max(8px, env(safe-area-inset-top)); }

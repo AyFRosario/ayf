@@ -371,7 +371,8 @@ function hojaCarta(XLSX, filas) {
   return ws;
 }
 
-function exportarCarta(XLSX, nombre) {
+// Hoja "Carta" con el mismo formato que el importador (sirve para volver a cargarla)
+export function hojaCartaActual(XLSX) {
   const filas = [...S.productos]
     .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
     .map((p) => [
@@ -380,8 +381,12 @@ function exportarCarta(XLSX, nombre) {
       p.controlStock ? Number(p.stock) || 0 : "", p.controlStock ? Number(p.stockMin) || 0 : "",
       p.activo === false ? "No" : "Sí", p.enCarta === false ? "No" : "Sí",
     ]);
+  return hojaCarta(XLSX, filas);
+}
+
+function exportarCarta(XLSX, nombre) {
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, hojaCarta(XLSX, filas), "Carta");
+  XLSX.utils.book_append_sheet(wb, hojaCartaActual(XLSX), "Carta");
   XLSX.writeFile(wb, nombre);
 }
 

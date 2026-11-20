@@ -34,11 +34,47 @@ async function obtener() {
   return { carta: JSON.parse(doc.fields.json.stringValue), ts: Number(doc.fields.ts?.integerValue) || 0 };
 }
 
-function waLink(num) {
-  let d = String(num || "").replace(/\D+/g, "").replace(/^0+/, "");
-  if (!d) return "";
-  if (!d.startsWith("54")) d = "549" + d;
-  return "https://wa.me/" + d;
+// El número ya viene normalizado desde la app (campo "wa"); el resto es por compatibilidad
+function waLink(c, texto = "") {
+  let d = c.wa || "";
+  if (!d) {
+    d = String(c.whatsapp || "").replace(/\D+/g, "").replace(/^0+/, "");
+    if (!d) return "";
+    if (!d.startsWith("54")) d = "549" + d;
+  }
+  return "https://wa.me/" + d + (texto ? "?text=" + encodeURIComponent(texto) : "");
+}
+
+const hoyStr = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
+
+// Reserva: arma el mensaje y abre WhatsApp. No guarda nada: la confirma el bar.
+function abrirReserva() {
+  const fondo = document.createElement("div");
+  fondo.className = "hoja-fondo";
+  fondo.innerHTML = `<form class="hoja" role="dialog" aria-modal="true" aria-label="Reservar mesa">
+    <h2>Reservar mesa</h2>
+    <label>Nombre<input name="nombre" required autocomplete="name"></label>
+    <div class="dos"><label>Día<input name="dia" type="date" min="${hoyStr()}" value="${hoyStr()}" required></label>
+      <label>Hora<input name="hora" type="time" value="21:00" required></label></div>
+    <label>Personas<select name="pers">${Array.from({ length: 12 }, (_, i) => `<option ${i === 1 ? "selected" : ""}>${i + 1}</option>`).join("")}<option value="más de 12">Más de 12</option></select></label>
+    <label>Comentario (opcional)<input name="nota" placeholder="Cumpleaños, silla para bebé…"></label>
+    <button class="btn-wa">Enviar por WhatsApp</button>
+    <button type="button" class="btn-sec" data-cerrar>Cancelar</button>
+    <p class="nota">Te contestamos por WhatsApp para confirmar.</p>
+  </form>`;
+  document.body.appendChild(fondo);
+  const cerrar = () => fondo.remove();
+  fondo.addEventListener("click", (e) => { if (e.target === fondo || e.target.closest("[data-cerrar]")) cerrar(); });
+  const f = fondo.querySelector("form");
+  f.nombre.focus();
+  f.onsubmit = (e) => {
+    e.preventDefault();
+    const [y, m, d] = f.dia.value.split("-").map(Number);
+    const dia = new Date(y, m - 1, d).toLocaleDateString("es-AR", { weekday: "long", day: "numeric", month: "long" });
+    const txt = `¡Hola! Quiero reservar una mesa para ${f.pers.value} persona${f.pers.value === "1" ? "" : "s"} el ${dia} a las ${f.hora.value} h, a nombre de ${f.nombre.value.trim()}.${f.nota.value.trim() ? ` ${f.nota.value.trim()}.` : ""}`;
+    window.open(waLink(carta, txt), "_blank", "noopener");
+    cerrar();
+  };
 }
 
 function render() {
@@ -50,6 +86,7 @@ function render() {
       <img src="img/logo.svg" alt="${esc(c.nombre)}" class="logo">
       ${c.lema ? `<p class="lema">${esc(c.lema)}</p>` : ""}
       ${mesa ? `<p class="mesa">${esc(mesa)}</p>` : ""}
+      ${!mesa && c.reservas !== false && waLink(c) ? `<p><button class="btn-reservar" id="btnRes">Reservar mesa</button></p>` : ""}
     </header>
     ${conDatos ? `
     <div class="barra">
@@ -62,10 +99,11 @@ function render() {
       ${c.horario ? `<p>${esc(c.horario)}</p>` : ""}
       <p class="redes">
         ${c.instagram ? `<a href="https://instagram.com/${esc(c.instagram.replace(/^@/, ""))}" target="_blank" rel="noopener">Instagram @${esc(c.instagram.replace(/^@/, ""))}</a>` : ""}
-        ${c.whatsapp && waLink(c.whatsapp) ? `<a href="${waLink(c.whatsapp)}" target="_blank" rel="noopener">WhatsApp</a>` : ""}
+        ${waLink(c) ? `<a href="${waLink(c)}" target="_blank" rel="noopener">WhatsApp</a>` : ""}
       </p>
       <p class="nota">Precios en pesos argentinos.</p>
     </footer>`;
+  document.getElementById("btnRes")?.addEventListener("click", abrirReserva);
   if (!conDatos) return;
   renderLista();
   const busq = document.getElementById("busq");

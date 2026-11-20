@@ -3,12 +3,12 @@
 // ============================================================
 import { CONFIG } from "./config.js";
 import { initDB, db, auth, MODO, onError } from "./db.js";
-import { S, emit, onStore, puede, ROLES, CONFIG_DEF } from "./store.js";
+import { S, emit, onStore, puede, ROLES, CONFIG_DEF, fechaStr } from "./store.js";
 import { $, esc, icon, toast, modal, confirmar, iniciales, fmt } from "./util.js";
 import { reconectarImpresora } from "./print.js";
 import { iniciarPublicacion, detenerPublicacion } from "./publicar.js";
 
-const VERSION = "0.5.0";
+const VERSION = "0.6.0";
 import * as vSalon from "./vistas/salon.js";
 import * as vMesa from "./vistas/mesa.js";
 import * as vCocina from "./vistas/cocina.js";
@@ -17,17 +17,27 @@ import * as vProductos from "./vistas/productos.js";
 import * as vReportes from "./vistas/reportes.js";
 import * as vUsuarios from "./vistas/usuarios.js";
 import * as vAjustes from "./vistas/ajustes.js";
+import * as vReservas from "./vistas/reservas.js";
+import * as vCompras from "./vistas/compras.js";
+import * as vClientes from "./vistas/clientes.js";
+import * as vRecordatorios from "./vistas/recordatorios.js";
 
 const RUTAS = {
   salon: { mod: vSalon, perm: "salon", titulo: "Salón", icono: "mesas", menu: true },
   mesa: { mod: vMesa, perm: "mesa", titulo: "Mesa" },
   cocina: { mod: vCocina, perm: "cocina", titulo: "Cocina y barra", icono: "cocina", menu: true },
   caja: { mod: vCaja, perm: "caja", titulo: "Caja", icono: "caja", menu: true },
-  reportes: { mod: vReportes, perm: "reportes", titulo: "Reportes", icono: "grafico", menu: true },
-  productos: { mod: vProductos, perm: "productos", titulo: "Productos", icono: "productos", menu: true },
-  usuarios: { mod: vUsuarios, perm: "usuarios", titulo: "Usuarios", icono: "usuarios", menu: true },
-  ajustes: { mod: vAjustes, perm: "ajustes", titulo: "Ajustes", icono: "ajustes", menu: true },
+  reservas: { mod: vReservas, perm: "reservas", titulo: "Reservas", icono: "calendario", menu: true },
+  reportes: { mod: vReportes, perm: "reportes", titulo: "Reportes", icono: "grafico", menu: true, grupo: "Gestión" },
+  productos: { mod: vProductos, perm: "productos", titulo: "Productos", icono: "productos", menu: true, grupo: "Gestión" },
+  compras: { mod: vCompras, perm: "compras", titulo: "Compras", icono: "camion", menu: true, grupo: "Gestión" },
+  clientes: { mod: vClientes, perm: "clientes", titulo: "Clientes", icono: "libreta", menu: true, grupo: "Gestión" },
+  recordatorios: { mod: vRecordatorios, perm: "recordatorios", titulo: "Vencimientos", icono: "alarma", menu: true, grupo: "Gestión" },
+  usuarios: { mod: vUsuarios, perm: "usuarios", titulo: "Usuarios", icono: "usuarios", menu: true, grupo: "Configuración" },
+  ajustes: { mod: vAjustes, perm: "ajustes", titulo: "Ajustes", icono: "ajustes", menu: true, grupo: "Configuración" },
 };
+// Barra de abajo en el celular: estas primero; si hay más de 5, el resto va en "Más"
+const PRIORIDAD_INFERIOR = ["salon", "cocina", "caja", "reservas", "productos"];
 
 const appEl = document.getElementById("app");
 let unsubs = [];
@@ -131,6 +141,9 @@ function iniciarApp() {
   });
   escuchar("usuarios", {}, (a) => { S.usuarios = a; emit("usuarios"); });
   if (S.rol !== "cocina") escuchar("insumos", {}, (a) => { S.insumos = a.sort((x, y) => String(x.nombre).localeCompare(String(y.nombre), "es")); emit("insumos"); });
+  if (S.rol !== "cocina") escuchar("clientes", {}, (a) => { S.clientes = a.sort((x, y) => String(x.nombre).localeCompare(String(y.nombre), "es")); emit("clientes"); });
+  if (puede("reservas")) escuchar("reservas", { where: [["fecha", ">=", fechaStr()]] }, (a) => { S.reservas = a; emit("reservas"); });
+  if (puede("recordatorios")) escuchar("recordatorios", {}, (a) => { S.recordatorios = a; emit("recordatorios"); });
   renderShell();
   navegar();
   reconectarImpresora();
@@ -220,12 +233,20 @@ function rutasMenu() {
 function renderShell() {
   const rutas = rutasMenu();
   const compacto = S.rol === "cocina";
-  const links = rutas.map(([k, r]) => `<a href="#/${k}" data-ruta="${k}">${icon(r.icono)}<span>${r.titulo}</span></a>`).join("");
+  const link = ([k, r]) => `<a href="#/${k}" data-ruta="${k}">${icon(r.icono)}<span>${r.titulo}</span></a>`;
+  const links = rutas.map(link).join("");
+  let grupo = null;
+  const lateral = rutas.map((x) => { const g = x[1].grupo || ""; const sep = g !== grupo && g ? `<small class="nav-grupo">${g}</small>` : ""; grupo = g; return sep + link(x); }).join("");
+  // Celular: hasta 5 lugares; si no entran, 4 + "Más"
+  const ordenInf = [...rutas].sort((a, b) => ((PRIORIDAD_INFERIOR.indexOf(a[0]) + 1) || 99) - ((PRIORIDAD_INFERIOR.indexOf(b[0]) + 1) || 99));
+  const visiblesInf = ordenInf.length > 5 ? ordenInf.slice(0, 4) : ordenInf;
+  masRutas = ordenInf.length > 5 ? ordenInf.slice(4).map(([k]) => k) : [];
+  const inferior = visiblesInf.map(link).join("") + (masRutas.length ? `<button type="button" class="nav-mas" data-act="mas">${icon("menu")}<span>Más</span></button>` : "");
   appEl.innerHTML = `
   <div class="shell ${compacto ? "compacto" : ""}" id="shell">
     <aside class="nav-lateral">
       <div class="marca"><img src="img/logo.svg" alt=""><div><b>${esc(S.config.nombre || "A&F")}</b><small>Gestión</small></div></div>
-      <nav>${links}</nav>
+      <nav>${lateral}</nav>
       <button class="nav-usuario" data-act="usuario"><span class="avatar">${esc(iniciales(S.perfil?.nombre))}</span><span><b>${esc(S.perfil?.nombre || "")}</b><small>${esc(ROLES[S.rol] || "")}</small></span></button>
     </aside>
     <header class="barra-sup">
@@ -238,10 +259,21 @@ function renderShell() {
       </div>
     </header>
     <main id="vista"></main>
-    <nav class="nav-inferior">${links}</nav>
+    <nav class="nav-inferior">${inferior}</nav>
   </div>`;
   appEl.querySelectorAll('[data-act="usuario"]').forEach((b) => (b.onclick = menuUsuario));
+  appEl.querySelector('[data-act="mas"]')?.addEventListener("click", menuMas);
   actualizarBarra();
+}
+
+let masRutas = [];
+function menuMas() {
+  const m = modal({
+    titulo: "Más",
+    clase: "modal-chico hoja-mas",
+    cuerpo: `<nav class="mas-grilla">${masRutas.map((k) => `<a href="#/${k}" data-ruta="${k}" class="${actual?.key === k ? "activo" : ""}">${icon(RUTAS[k].icono)}<span>${RUTAS[k].titulo}</span></a>`).join("")}</nav>`,
+  });
+  m.el.addEventListener("click", (e) => { if (e.target.closest("a")) m.cerrar(); });
 }
 
 function menuUsuario() {
@@ -291,6 +323,7 @@ function navegar() {
   $("#shell").classList.toggle("en-mesa", k === "mesa");
   $("#shell").classList.toggle("en-cocina", k === "cocina");
   appEl.querySelectorAll("[data-ruta]").forEach((a) => a.classList.toggle("activo", a.dataset.ruta === k));
+  appEl.querySelector(".nav-mas")?.classList.toggle("activo", masRutas.includes(k));
   $("#bsTitulo").textContent = RUTAS[k].titulo;
   window.scrollTo(0, 0);
   actual = { key: k, inst: RUTAS[k].mod.mount(cont, { param: partes[1] ? decodeURIComponent(partes[1]) : null }) || {} };

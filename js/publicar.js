@@ -9,7 +9,7 @@
 // Cualquier dispositivo con rol encargado o dueño mantiene ese
 // documento al día: cuando cambian productos, mesas o datos del
 // negocio, lo vuelve a publicar (solo si algo cambió de verdad).
-import { S, onStore, categorias } from "./store.js";
+import { S, onStore, categorias, waLink } from "./store.js";
 import { db } from "./db.js";
 
 let ultimoHash = null;
@@ -46,6 +46,8 @@ export function construirCarta() {
     horario: c.horario || "",
     instagram: c.instagram || "",
     whatsapp: c.whatsapp || "",
+    wa: waLink(c.whatsapp).replace("https://wa.me/", ""),
+    reservas: c.reservasCarta !== false,
     mesas: Object.fromEntries(S.mesas.map((m) => [m.id, m.nombre])),
     cats,
   };

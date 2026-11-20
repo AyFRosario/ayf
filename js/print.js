@@ -73,7 +73,7 @@ export function ticketVenta(v) {
   ];
   if (v.descuento?.monto) r.push(F(`Descuento${v.descuento.tipo === "pct" ? ` ${v.descuento.valor}%` : ""}`, "-" + fmt(v.descuento.monto)));
   r.push(F("TOTAL", fmt(v.total), { neg: true, grande: true }), L());
-  for (const p of v.pagos || []) r.push(F(MEDIOS[p.medio] || p.medio, fmt(p.monto)));
+  for (const p of v.pagos || []) r.push(F(p.medio === "cuenta" && p.clienteNombre ? `Cta. cte. ${p.clienteNombre}` : MEDIOS[p.medio] || p.medio, fmt(p.monto)));
   if (v.vuelto) r.push(F("Su vuelto", fmt(v.vuelto)));
   r.push(E(1), T("No válido como factura", { al: "c" }));
   if (S.config.pieTicket) r.push(T(S.config.pieTicket, { al: "c" }));

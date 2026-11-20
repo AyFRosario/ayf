@@ -8,13 +8,14 @@ import { S, puede, itemsDe, vigentes, agrupar, MEDIOS, nroVenta, log, onStore, c
 import { db, inc } from "../db.js";
 import { esc, fmt, num, icon, modal, toast, beep, pedirTexto } from "../util.js";
 import { imprimir, ticketVenta } from "../print.js";
+import { elegirCliente, opsCuenta } from "./clientes.js";
 
 export function abrirCobro(cid) {
   if (!puede("cobrar")) return toast("No tenés permiso para cobrar", "error");
   const c0 = S.comandas.find((c) => c.id === cid);
   if (!c0) return;
 
-  const medios = (S.config.medios || Object.keys(MEDIOS)).filter((m) => MEDIOS[m]);
+  const medios = mediosCobro();
   const st = { descTipo: "pct", descValor: 0, pagos: [{ medio: medios[0] || "efectivo", monto: 0 }], pagaCon: 0, totalPrevio: null };
 
   const m = modal({
@@ -64,6 +65,7 @@ export function abrirCobro(cid) {
         <select class="input" data-medio="${i}">${medios.map((x) => `<option value="${x}" ${x === p.medio ? "selected" : ""}>${MEDIOS[x]}</option>`).join("")}</select>
         <input class="input" data-monto="${i}" inputmode="decimal" value="${p.monto ? Math.round(p.monto) : ""}" placeholder="$ 0">
         ${st.pagos.length > 1 ? `<button type="button" class="btn-icono" data-quitar="${i}" aria-label="Quitar">${icon("x")}</button>` : ""}
+        ${p.medio === "cuenta" ? `<button type="button" class="co-cliente ${p.clienteId ? "" : "falta"}" data-cliente="${i}">${icon("libreta")} ${p.clienteId ? `A la cuenta de <b>${esc(p.clienteNombre)}</b>` : "Elegí a qué cliente se carga"}</button>` : ""}
       </div>`).join("");
   }
 
@@ -98,11 +100,13 @@ export function abrirCobro(cid) {
 
     const dif = r.total - pagado;
     const est = $("#coEstado");
-    if (Math.abs(dif) < 1) { est.className = "co-estado ok"; est.textContent = st.pagos.length > 1 ? "Pago dividido completo" : ""; }
+    const sinCliente = st.pagos.some((p) => p.medio === "cuenta" && Number(p.monto) > 0 && !p.clienteId);
+    if (sinCliente) { est.className = "co-estado falta"; est.textContent = "Elegí el cliente de la cuenta corriente"; }
+    else if (Math.abs(dif) < 1) { est.className = "co-estado ok"; est.textContent = st.pagos.length > 1 ? "Pago dividido completo" : ""; }
     else if (dif > 0) { est.className = "co-estado falta"; est.textContent = `Falta asignar ${fmt(dif)}`; }
     else { est.className = "co-estado sobra"; est.textContent = `Hay ${fmt(-dif)} de más`; }
     const ok = $("#coOk");
-    ok.disabled = !S.jornada || Math.abs(dif) >= 1 || !r.lineas.length;
+    ok.disabled = !S.jornada || Math.abs(dif) >= 1 || !r.lineas.length || sinCliente;
     ok.textContent = `Cobrar ${fmt(r.total)}`;
   }
 
@@ -110,6 +114,8 @@ export function abrirCobro(cid) {
   m.el.addEventListener("click", async (e) => {
     const dt = e.target.closest("[data-dt]");
     if (dt) { st.descTipo = dt.dataset.dt; actualizar(); return; }
+    const cl = e.target.closest("[data-cliente]");
+    if (cl) { pedirCliente(Number(cl.dataset.cliente)); return; }
     const q = e.target.closest("[data-quitar]");
     if (q) { st.pagos.splice(Number(q.dataset.quitar), 1); renderPagos(); actualizar(); return; }
     const a = e.target.closest("[data-act]");
@@ -136,8 +142,22 @@ export function abrirCobro(cid) {
   });
   m.el.addEventListener("change", (e) => {
     const t = e.target;
-    if (t.dataset.medio !== undefined) { st.pagos[Number(t.dataset.medio)].medio = t.value; actualizar(); }
+    if (t.dataset.medio !== undefined) {
+      const k = Number(t.dataset.medio);
+      st.pagos[k].medio = t.value;
+      if (t.value !== "cuenta") { delete st.pagos[k].clienteId; delete st.pagos[k].clienteNombre; }
+      renderPagos(); actualizar();
+      if (t.value === "cuenta") pedirCliente(k);
+    }
   });
+  function pedirCliente(k) {
+    elegirCliente((cli) => {
+      if (!cli || !st.pagos[k]) return;
+      st.pagos[k].clienteId = cli.id;
+      st.pagos[k].clienteNombre = cli.nombre;
+      renderPagos(); actualizar();
+    });
+  }
   $("#coOk").onclick = confirmarCobro;
 
   const soltar = onStore((k) => { if (["items", "comandas", "jornada"].includes(k)) actualizar(); });
@@ -152,6 +172,7 @@ export function abrirCobro(cid) {
     const r = calcular();
     const pagado = Math.round(st.pagos.reduce((s, p) => s + (Number(p.monto) || 0), 0));
     if (Math.abs(r.total - pagado) >= 1) return;
+    if (st.pagos.some((p) => p.medio === "cuenta" && Number(p.monto) > 0 && !p.clienteId)) return;
     const t = Date.now();
     const vid = db.newId("ventas");
     const ef = st.pagos.filter((p) => p.medio === "efectivo").reduce((s, p) => s + (Number(p.monto) || 0), 0);
@@ -163,7 +184,7 @@ export function abrirCobro(cid) {
       items: r.lineas, subtotal: r.subtotal,
       descuento: r.desc ? { tipo: st.descTipo, valor: st.descValor, monto: r.desc } : null,
       total: r.total,
-      pagos: st.pagos.filter((p) => Number(p.monto) > 0).map((p) => ({ medio: p.medio, monto: Math.round(p.monto) })),
+      pagos: st.pagos.filter((p) => Number(p.monto) > 0).map((p) => ({ medio: p.medio, monto: Math.round(p.monto), ...(p.medio === "cuenta" ? { clienteId: p.clienteId, clienteNombre: p.clienteNombre } : {}) })),
       vuelto: st.pagaCon > ef && ef ? Math.round(st.pagaCon - ef) : 0,
       estado: "ok",
     };
@@ -180,6 +201,8 @@ export function abrirCobro(cid) {
       else ops.push({ op: "update", col: "items", id: i.id, data: { cerrado: true, ...(i.estado === "nuevo" ? { estado: "entregado", entregadoTs: t } : {}) } });
     }
     ops.push(...opsInsumos(consumos, -1));
+    // Cuenta corriente: se suma al saldo del cliente
+    ops.push(...opsCuenta(venta.pagos, { ventaId: vid, desc: `${c.mesaNombre} · Nº ${venta.nro}` }));
     // Stock: siempre con incrementos
     const porProd = {};
     for (const l of r.lineas) porProd[l.productoId] = (porProd[l.productoId] || 0) + l.cant;
@@ -196,6 +219,12 @@ export function abrirCobro(cid) {
   }
 }
 
+// Medios habilitados para cobrar. La cuenta corriente tiene su propio interruptor en Ajustes.
+export function mediosCobro() {
+  const base = (S.config.medios || Object.keys(MEDIOS)).filter((m) => MEDIOS[m] && m !== "cuenta");
+  return S.config.cuentaCorriente === false ? base : [...base, "cuenta"];
+}
+
 export function cobrado(v) {
   const m = modal({
     titulo: "Cobrado",
@@ -203,7 +232,7 @@ export function cobrado(v) {
     cuerpo: `<div class="cobrado">
       <div class="cobrado-ok">${icon("check")}</div>
       <p><b>${esc(v.mesaNombre)}</b> · ${fmt(v.total)}</p>
-      <p class="ayuda">Nº ${esc(v.nro)} · ${v.pagos.map((p) => `${MEDIOS[p.medio]} ${fmt(p.monto)}`).join(" + ")}</p>
+      <p class="ayuda">Nº ${esc(v.nro)} · ${v.pagos.map((p) => `${MEDIOS[p.medio]}${p.clienteNombre ? ` (${esc(p.clienteNombre)})` : ""} ${fmt(p.monto)}`).join(" + ")}</p>
       ${v.vuelto ? `<p class="vuelto">Vuelto ${fmt(v.vuelto)}</p>` : ""}
     </div>`,
     pie: `<button class="btn" data-a="arca">${icon("externo")} Facturar en ARCA</button>

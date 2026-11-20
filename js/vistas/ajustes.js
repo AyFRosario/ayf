@@ -7,6 +7,7 @@ import { esc, icon, modal, toast, confirmar, pedirTexto, fechaHora } from "../ut
 import { imprimir, imprimirHoja, ticketPrueba, conectarBluetooth, conectarUSB, btConectada, usbConectada } from "../print.js";
 import { urlCarta } from "../publicar.js";
 import { qrcode } from "../vendor/qrcode.mjs";
+import { descargarRespaldo, diasSinRespaldo } from "../respaldo.js";
 
 const MODOS = {
   ninguna: { t: "Sin impresora", d: "Este dispositivo no imprime." },
@@ -21,7 +22,7 @@ export function mount(root) {
   root.innerHTML = `
     <div class="ajustes">
       <section class="tarjeta" id="aDisp"></section>
-      ${negocio ? `<section class="tarjeta" id="aCarta"></section><section class="tarjeta" id="aNeg"></section><section class="tarjeta" id="aMesas"></section>` : ""}
+      ${negocio ? `<section class="tarjeta" id="aCarta"></section><section class="tarjeta" id="aNeg"></section><section class="tarjeta" id="aMesas"></section><section class="tarjeta" id="aResp"></section>` : ""}
       ${MODO === "demo" ? `<section class="tarjeta"><h3>Modo demo</h3><p class="ayuda">Los datos están solo en este navegador.</p><button class="btn btn-peligro" data-act="reset">Reiniciar datos del demo</button></section>` : ""}
     </div>`;
 
@@ -72,7 +73,9 @@ export function mount(root) {
         </div>
         <p class="ayuda">Dirección, horario y redes aparecen al pie de la carta QR.</p>
         <label class="switch"><input type="checkbox" id="nMozo" ${c.mozoCobra ? "checked" : ""}><span>Los mozos pueden cobrar</span></label>
-        <div class="campo"><span>Medios de pago</span><div class="checks">${Object.entries(MEDIOS).map(([k, v]) => `<label class="check"><input type="checkbox" data-medio="${k}" ${(c.medios || []).includes(k) ? "checked" : ""}> ${v}</label>`).join("")}</div></div>
+        <label class="switch"><input type="checkbox" id="nCuenta" ${c.cuentaCorriente !== false ? "checked" : ""}><span>Permitir cobrar a cuenta corriente (clientes que pagan después)</span></label>
+        <label class="switch"><input type="checkbox" id="nResCarta" ${c.reservasCarta !== false ? "checked" : ""}><span>Botón "Reservar por WhatsApp" en la carta QR</span></label>
+        <div class="campo"><span>Medios de pago</span><div class="checks">${Object.entries(MEDIOS).filter(([k]) => k !== "cuenta").map(([k, v]) => `<label class="check"><input type="checkbox" data-medio="${k}" ${(c.medios || []).includes(k) ? "checked" : ""}> ${v}</label>`).join("")}</div></div>
         <button class="btn btn-pri">Guardar</button>
       </form>`;
     el.querySelector("#fNeg").onsubmit = (e) => {
@@ -84,6 +87,8 @@ export function mount(root) {
         lema: el.querySelector("#nLema").value.trim(),
         pieTicket: el.querySelector("#nPie").value.trim(),
         mozoCobra: el.querySelector("#nMozo").checked,
+        cuentaCorriente: el.querySelector("#nCuenta").checked,
+        reservasCarta: el.querySelector("#nResCarta").checked,
         medios,
         direccion: el.querySelector("#nDir").value.trim(),
         horario: el.querySelector("#nHor").value.trim(),
@@ -93,6 +98,17 @@ export function mount(root) {
       log("ajustes", "Datos del negocio actualizados");
       toast("Guardado");
     };
+  }
+
+  // ── Respaldo ──
+  function renderResp() {
+    const el = root.querySelector("#aResp");
+    if (!el) return;
+    const d = diasSinRespaldo();
+    el.innerHTML = `<h3>Respaldo</h3>
+      <p class="ayuda">Un Excel con todo: carta (se puede volver a importar), insumos y recetas, ventas con detalle, cajas, clientes, proveedores, compras, reservas y el registro de cambios. Guardalo en el Drive o en la PC.</p>
+      <p class="ayuda">${d === Infinity ? "Todavía no se descargó ningún respaldo." : `Último respaldo: ${fechaHora(S.config.ultimoRespaldo)}${d >= 7 ? ` · hace ${d} días` : ""}.`}</p>
+      <button class="btn btn-pri" data-act="respaldo">${icon("bajar")} Descargar respaldo completo</button>`;
   }
 
   // ── Carta QR ──
@@ -254,6 +270,7 @@ export function mount(root) {
       case "qrGeneral": qrGeneral(); break;
       case "agregarMesa": agregarMesas(false); break;
       case "agregarVarias": agregarMesas(true); break;
+      case "respaldo": descargarRespaldo(a); break;
       case "reset": if (await confirmar("Se borran todas las ventas y cambios del demo.", { ok: "Reiniciar", peligro: true })) auth.demoReset(); break;
     }
   });
@@ -262,10 +279,11 @@ export function mount(root) {
   renderNeg();
   renderMesas();
   renderCarta();
+  renderResp();
   return {
     update(claves) {
       if (claves.includes("mesas")) renderMesas();
-      if (claves.includes("config")) renderNeg();
+      if (claves.includes("config")) { renderNeg(); renderResp(); }
     },
     unmount() { soltarCarta?.(); },
   };

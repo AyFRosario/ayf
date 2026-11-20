@@ -1,4 +1,4 @@
-# A&F · Gestión del bar — versión 0.5
+# A&F · Gestión del bar — versión 0.6
 
 PWA para celular, tablet y PC. HTML, CSS y JS sin compilar, igual que el resto de JPSoft. Se publica en GitHub Pages y usa Firebase (Firestore + Auth) con caché sin conexión.
 
@@ -12,8 +12,14 @@ PWA para celular, tablet y PC. HTML, CSS y JS sin compilar, igual que el resto d
 | **Cobro** | Encargado (y mozos si se habilita) | Descuento en % o $, pago dividido entre varios medios, vuelto, ticket no fiscal y botón **Facturar en ARCA**. |
 | **Caja** | Encargado, dueño | La jornada no se corta a medianoche. Muestra totales por medio de pago, y permite cargar gastos, retiros e ingresos. El cierre hace el arqueo (contado contra esperado) y la anulación de ventas devuelve el stock. |
 | **Productos** | Encargado, dueño | Alta y edición con código de barras. Control de stock con aviso de stock bajo. **Ingreso de mercadería escaneando con el celular**. Precios en tanda. |
+| **Reservas** | Mozo, encargado, dueño | Reservas por día: confirmar por WhatsApp, sentar en una mesa, "no vino". Las de hoy aparecen arriba del salón. |
+| **Compras** | Encargado, dueño | Compras que suman stock (insumos y bebidas) y actualizan el costo. Proveedores con lo que se les debe. |
+| **Clientes** | Encargado, dueño | Cuenta corriente: cobrar "a cuenta", registrar pagos y mandar el saldo por WhatsApp. |
+| **Vencimientos** | Encargado, dueño | Matafuegos, campana, plagas, habilitación, seguro… con aviso en el salón. |
 | **Usuarios** | Dueño | Cuatro roles: dueño, encargado, mozo y cocina. |
-| **Ajustes** | Todos | Impresora de cada dispositivo. Datos del negocio y mesas (solo encargado y dueño). |
+| **Ajustes** | Todos | Impresora de cada dispositivo. Datos del negocio, mesas y respaldo completo en Excel (solo encargado y dueño). |
+
+En el celular, la barra de abajo muestra hasta cuatro pantallas y el botón **Más** con el resto. Al mozo le entran todas, así que no lo ve.
 
 ## 1. Probarlo ya (modo demo)
 
@@ -112,6 +118,65 @@ El **día comercial empieza a las 6 de la mañana**: lo que se cobra a las 2 de 
 - **Diferencia con los productos envasados:** el stock de las bebidas y otros envasados (con "Controlar stock") se sigue descontando al cobrar.
 - **Requisito:** hay que volver a publicar `firestore.rules`, que ahora incluye la regla `insumos`.
 
+## 3 sexies. Reservas, compras, clientes, vencimientos y respaldo (v0.6)
+
+**Antes de usar esta versión hay que volver a publicar `firestore.rules`.** Trae reglas para `reservas`, `proveedores`, `compras`, `clientes`, `movClientes` y `recordatorios`. Sin ellas, esas pantallas no guardan.
+
+### Reservas
+- Se cargan por día con nombre, teléfono, hora, personas, mesa (opcional) y una nota.
+- **WhatsApp** abre el chat con el mensaje de confirmación ya escrito. Al volver, la app pregunta si confirmó.
+- **Sentar** abre la mesa con los comensales de la reserva y la marca como sentada. Si la mesa asignada está ocupada, deja elegir otra.
+- En el **Salón**:
+  - las reservas de hoy aparecen arriba, con el botón Sentar;
+  - una reserva pasa a "demorada" 15 minutos después de la hora;
+  - la mesa reservada se marca en azul desde 3 horas antes;
+  - al abrir una mesa reservada, la app pregunta si es la reserva.
+- En la **carta QR** hay un botón **Reservar mesa**: el cliente completa nombre, día, hora y personas, y se abre WhatsApp con el pedido. No se guarda solo; lo carga el bar al confirmar. Aparece si en Ajustes hay un WhatsApp cargado, y se puede apagar.
+
+### Compras y proveedores
+- **Nueva compra:** se elige el proveedor y se buscan o escanean los ítems que llegaron, con cantidad y costo.
+- **Qué se actualiza:**
+  - los insumos suman stock y toman el costo nuevo, así el costo de las recetas queda al día;
+  - las bebidas y los envasados suman stock y guardan el último costo.
+- **Cómo se paga:**
+  - con **efectivo de la caja**: queda como gasto en el arqueo;
+  - por **transferencia u otro medio**: no toca la caja;
+  - **queda debiendo**: se suma a lo que se le debe al proveedor.
+- Los **pagos a proveedores** se registran desde la ficha de cada uno.
+- Una compra o un pago se pueden **anular**: se revierte el stock y la deuda. Si fue con la caja todavía abierta, también se quita el gasto.
+
+### Clientes con cuenta corriente
+- **Cobrar a cuenta:** en el cobro aparece el medio **Cuenta corriente**. Al elegirlo, se elige el cliente (o se crea uno nuevo, solo encargado y dueño). Se puede combinar con otros medios; por ejemplo, la mitad en efectivo y la otra mitad a cuenta.
+- La venta queda registrada como cualquier otra. Lo que va a cuenta **no entra al arqueo** de efectivo.
+- En **Clientes**:
+  - el saldo de cada uno y el total que te deben;
+  - los movimientos;
+  - **Registrar pago**: un pago en efectivo con la caja abierta entra como ingreso en el arqueo;
+  - **WhatsApp**: manda el saldo pendiente.
+- **Anular** una venta cargada a cuenta descuenta ese monto del saldo.
+- Se puede apagar en **Ajustes → Negocio**.
+
+### Vencimientos
+- Hay plantillas listas: matafuegos, campana, plagas, tanque de agua, habilitación, seguro y carnet de manipulación.
+- Cada vencimiento tiene una fecha, cada cuánto se repite y con cuántos días de anticipación avisar.
+- El **Salón** muestra los vencidos (en rojo) y los próximos (en ámbar) a encargado y dueño.
+- **Hecho** pasa la fecha al próximo vencimiento.
+
+### Respaldo
+- **Dónde:** en **Ajustes → Respaldo**, que descarga un Excel con todo.
+- **Qué incluye:**
+  - la carta, en el mismo formato del importador, así se puede volver a cargar;
+  - insumos y recetas;
+  - mesas;
+  - ventas y su detalle;
+  - cajas y movimientos de caja;
+  - clientes y cuentas corrientes;
+  - proveedores y compras;
+  - reservas, vencimientos y usuarios;
+  - el registro de cambios.
+- Al **cerrar la caja**, si pasaron 7 días desde el último respaldo, la app lo sugiere con un botón para descargarlo ahí mismo.
+- Los datos ya están en Firebase. El respaldo sirve como copia propia, para guardarla en el Drive o en la PC.
+
 ## 4. Escáner de códigos
 
 - **Android (Chrome):** usa el lector que trae el navegador. Es rápido y funciona sin conexión.
@@ -149,10 +214,12 @@ js/importar.js     ← carta desde/hacia Excel
 js/publicar.js     ← mantiene publicada la carta QR
 js/carta.js        ← página pública de la carta
 js/vendor/qrcode.mjs ← generador de QR (Kazuhiko Arase, licencia MIT)
-js/vistas/         ← salon, mesa, cobro, cocina, caja, productos, usuarios, ajustes
+js/respaldo.js     ← respaldo completo en Excel
+js/vistas/         ← salon, mesa, cobro, cocina, caja, productos, insumos, reportes,
+                     reservas, compras, clientes, recordatorios, usuarios, ajustes
 ```
 
-**Colecciones** (dentro de `negocios/{id}/`): `config`, `usuarios`, `mesas`, `productos`, `insumos`, `comandas`, `items`, `ventas`, `jornadas`, `movCaja`, `logs`, `publico`.
+**Colecciones** (dentro de `negocios/{id}/`): `config`, `usuarios`, `mesas`, `productos`, `insumos`, `comandas`, `items`, `ventas`, `jornadas`, `movCaja`, `reservas`, `proveedores`, `compras`, `clientes`, `movClientes`, `recordatorios`, `logs`, `publico`.
 
 ## 7. De dónde salió cada cosa
 
@@ -163,8 +230,8 @@ js/vistas/         ← salon, mesa, cobro, cocina, caja, productos, usuarios, aj
   - alta de usuarios con una segunda instancia de Firebase;
   - modo sin conexión.
 - **Dietética Josué:** buscador tolerante y fonético, escáner con cámara y detección del lector USB.
-- **Dairus Rosario:** precios en tanda.
-- **JPSoft Cocheras:** grilla (pasó a mapa de mesas) y botón de ARCA.
+- **Dairus Rosario:** precios en tanda y reservas.
+- **JPSoft Cocheras:** grilla (pasó a mapa de mesas), botón de ARCA, recordatorios y respaldo a Excel.
 
 Problemas de los proyectos anteriores que esta versión no hereda:
 - se descuenta stock con incrementos;
@@ -173,11 +240,9 @@ Problemas de los proyectos anteriores que esta versión no hereda:
 - si falla la lectura del rol, no se entra como administrador;
 - los roles se controlan en las reglas de Firestore.
 
-## 8. Lo que sigue (fase 2)
+## 8. Lo que sigue
 
-- Reservas (de Dairus) y "Llamar al mozo" desde la carta QR
+- "Llamar al mozo" desde la carta QR
 - Fotos de los productos en la carta QR
-- Compras y proveedores, clientes con cuenta corriente
-- Reportes por período, productos más vendidos, rendimiento por mozo
-- Recordatorios (habilitación, matafuegos, campana, plagas) y backup a Excel (de Cocheras)
-- Promos tipo "2 pintas + papas"
+- Promos tipo "2 pintas + papas" o 2x1 en tragos
+- Facturación electrónica con ARCA (cuando haga falta)

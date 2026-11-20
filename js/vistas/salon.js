@@ -1,15 +1,25 @@
 // ============================================================
 //  A&F · Salón (mapa de mesas)
 // ============================================================
-import { S, puede, itemsDe, vigentes, totalItems, comandaDeMesa, sectoresMesas, log, insumosBajos, fmtCantidad } from "../store.js";
+import { S, puede, itemsDe, vigentes, totalItems, comandaDeMesa, sectoresMesas, log, insumosBajos, fmtCantidad, fechaStr, deFechaStr, estadoRecordatorio } from "../store.js";
 import { db } from "../db.js";
 import { esc, fmt, durTxt, minutos, icon, modal, toast, iniciales } from "../util.js";
+import { sentar } from "./reservas.js";
+import { pendientesRecordatorios, txtDias } from "./recordatorios.js";
+
+// Reservas de hoy que todavía no llegaron
+export const reservasDeHoy = () => S.reservas
+  .filter((r) => r.fecha === fechaStr() && ["pendiente", "confirmada"].includes(r.estado))
+  .sort((a, b) => (a.hora || "").localeCompare(b.hora || ""));
+// Reserva próxima de una mesa libre: desde 1 h antes de la hora hasta 1 h después
+const reservaDeMesa = (m) => reservasDeHoy().find((r) => r.mesaId === m.id && Math.abs(Date.now() - deFechaStr(r.fecha, r.hora)) <= 3600000 * (Date.now() < deFechaStr(r.fecha, r.hora) ? 3 : 1));
 
 export function mount(root) {
   let sector = localStorage.getItem("af_salon_sector") || "Todos";
   root.innerHTML = `
     <div class="salon">
       <div class="aviso-caja" id="sAviso"></div>
+      <div class="res-hoy" id="sReservas"></div>
       <div class="listos" id="sListos"></div>
       <div class="salon-cab">
         <div class="chips desliza" id="sSectores"></div>
@@ -29,7 +39,22 @@ export function mount(root) {
         : "") +
       (bajos.length
         ? `<a href="#/productos/insumos" class="banda rojo">${icon("alerta")} Por terminarse: ${bajos.slice(0, 4).map((i) => `${esc(i.nombre)} (${fmtCantidad(i.stock, i.unidad)})`).join(", ")}${bajos.length > 4 ? ` y ${bajos.length - 4} más` : ""}</a>`
-        : "");
+        : "") +
+      (puede("recordatorios") ? pendientesRecordatorios().slice(0, 3).map((r) => {
+        const e = estadoRecordatorio(r);
+        return `<a href="#/recordatorios" class="banda ${e.estado === "vencido" ? "rojo" : "ambar"}">${icon("alarma")} ${esc(r.titulo)}: ${txtDias(e).toLowerCase()}</a>`;
+      }).join("") : "");
+
+    // Reservas de hoy
+    const rh = puede("reservas") ? reservasDeHoy() : [];
+    root.querySelector("#sReservas").innerHTML = rh.length
+      ? `<div class="res-hoy-cab">${icon("calendario")} Reservas de hoy <a href="#/reservas">Ver todas</a></div><div class="res-hoy-lista">${rh.map((r) => {
+          const tarde = Date.now() - deFechaStr(r.fecha, r.hora) > 15 * 60000;
+          const mesa = S.mesas.find((m) => m.id === r.mesaId);
+          return `<div class="res-chip ${tarde ? "tarde" : ""} ${r.estado}"><span><b>${esc(r.hora)}</b> ${esc(r.nombre)} · ${r.personas}${mesa ? ` · ${esc(mesa.nombre)}` : ""}${tarde ? ` · <i>demorada</i>` : r.estado === "pendiente" ? ` · <i>sin confirmar</i>` : ""}</span>
+            ${puede("mesa") ? `<button class="btn chico" data-act="sentar" data-rid="${esc(r.id)}">Sentar</button>` : ""}</div>`;
+        }).join("")}</div>`
+      : "";
 
     // Pedidos listos para llevar
     const listos = S.items.filter((i) => i.estado === "listo");
@@ -75,9 +100,11 @@ export function mount(root) {
   function tarjeta(m) {
     const c = comandaDeMesa(m);
     if (!c) {
-      return `<button class="mesa libre" data-act="abrir" data-id="${esc(m.id)}">
+      const r = reservaDeMesa(m);
+      return `<button class="mesa libre ${r ? "reservada" : ""}" data-act="abrir" data-id="${esc(m.id)}">
         <span class="mesa-nom">${esc(m.nombre)}</span>
-        <span class="mesa-info">${m.capacidad ? `${m.capacidad} lugares` : "Libre"}</span></button>`;
+        <span class="mesa-info">${m.capacidad ? `${m.capacidad} lugares` : "Libre"}</span>
+        ${r ? `<span class="mesa-badge">${icon("calendario")} ${esc(r.hora)} · ${esc(r.nombre.split(" ")[0])}</span>` : ""}</button>`;
     }
     const its = itemsDe(c.id);
     const v = vigentes(its);
@@ -103,7 +130,8 @@ export function mount(root) {
     const m = modal({
       titulo: `Abrir ${mesa.nombre}`,
       clase: "modal-chico",
-      cuerpo: `<form class="form" id="fAbrir">
+      cuerpo: `${reservaDeMesa(mesa) ? `<button type="button" class="banda azul boton-banda" data-reserva>${icon("calendario")} <span>Reservada para <b>${esc(reservaDeMesa(mesa).nombre)}</b> (${reservaDeMesa(mesa).personas}) a las ${esc(reservaDeMesa(mesa).hora)}. Tocá acá si es la reserva.</span></button>` : ""}
+      <form class="form" id="fAbrir">
         <div class="campo"><span>Comensales</span>
           <div class="stepper grande"><button type="button" data-d="-1" aria-label="Menos">${icon("menos")}</button><input class="input" id="aCom" inputmode="numeric" value="${mesa.capacidad || 2}"><button type="button" data-d="1" aria-label="Más">${icon("mas")}</button></div>
         </div>
@@ -111,6 +139,8 @@ export function mount(root) {
       </form>`,
       pie: `<button type="submit" form="fAbrir" class="btn btn-pri btn-bloque">Abrir mesa</button>`,
     });
+    const br = m.el.querySelector("[data-reserva]");
+    if (br) br.onclick = () => { const r = reservaDeMesa(mesa); m.cerrar(); if (r) sentar(r); };
     const inp = m.el.querySelector("#aCom");
     m.el.querySelectorAll("[data-d]").forEach((b) => (b.onclick = () => { inp.value = Math.max(1, (parseInt(inp.value, 10) || 0) + Number(b.dataset.d)); }));
     m.el.querySelector("#fAbrir").onsubmit = (e) => {
@@ -142,6 +172,7 @@ export function mount(root) {
     const b = e.target.closest("[data-act]");
     if (!b) return;
     if (b.dataset.act === "ir") location.hash = "#/mesa/" + b.dataset.cid;
+    else if (b.dataset.act === "sentar") { const r = S.reservas.find((x) => x.id === b.dataset.rid); if (r) sentar(r); }
     else if (b.dataset.act === "abrir") {
       if (!puede("mesa")) return;
       const mesa = S.mesas.find((x) => x.id === b.dataset.id);

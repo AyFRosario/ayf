@@ -27,6 +27,9 @@ export const S = {
   jornada: null,   // caja abierta
   usuarios: [],
   insumos: [],
+  clientes: [],
+  reservas: [],        // de hoy en adelante
+  recordatorios: [],
   cargados: new Set(), // colecciones que ya respondió el servidor
 };
 
@@ -37,14 +40,14 @@ export function emit(clave) {
 }
 
 export const ROLES = { dueno: "Dueño", encargado: "Encargado", mozo: "Mozo", cocina: "Cocina" };
-export const MEDIOS = { efectivo: "Efectivo", mp: "Mercado Pago", debito: "Débito", credito: "Crédito", transferencia: "Transferencia" };
+export const MEDIOS = { efectivo: "Efectivo", mp: "Mercado Pago", debito: "Débito", credito: "Crédito", transferencia: "Transferencia", cuenta: "Cuenta corriente" };
 export const SECTORES = { cocina: "Cocina", barra: "Barra", ninguno: "Lo sirve el mozo" };
 export const ESTADOS_ITEM = { nuevo: "Sin enviar", pendiente: "Pendiente", preparando: "En preparación", listo: "Listo", entregado: "Entregado", anulado: "Anulado" };
 
 const PERMISOS = {
-  dueno: ["salon", "mesa", "cocina", "caja", "reportes", "productos", "usuarios", "ajustes", "ajustesNegocio", "anular"],
-  encargado: ["salon", "mesa", "cocina", "caja", "reportes", "productos", "ajustes", "ajustesNegocio", "anular"],
-  mozo: ["salon", "mesa", "ajustes"],
+  dueno: ["salon", "mesa", "cocina", "caja", "reportes", "productos", "reservas", "compras", "clientes", "recordatorios", "usuarios", "ajustes", "ajustesNegocio", "anular"],
+  encargado: ["salon", "mesa", "cocina", "caja", "reportes", "productos", "reservas", "compras", "clientes", "recordatorios", "ajustes", "ajustesNegocio", "anular"],
+  mozo: ["salon", "mesa", "reservas", "ajustes"],
   cocina: ["cocina", "ajustes"],
 };
 export function puede(accion) {
@@ -67,6 +70,37 @@ export function agrupar(its) {
   return [...m.values()];
 }
 export const comandaDeMesa = (m) => (m?.comandaId ? S.comandas.find((c) => c.id === m.comandaId) || null : null);
+
+// ── Fechas ──
+export const fechaStr = (t = Date.now()) => { const d = new Date(t); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
+export const deFechaStr = (s, hhmm = "00:00") => { const [y, m, d] = s.split("-").map(Number); const [h, mi] = hhmm.split(":").map(Number); return new Date(y, m - 1, d, h || 0, mi || 0).getTime(); };
+export function fechaLarga(s) {
+  const d = new Date(deFechaStr(s, "12:00"));
+  const hoy = fechaStr(), man = fechaStr(Date.now() + 86400000);
+  const base = d.toLocaleDateString("es-AR", { weekday: "long", day: "numeric", month: "long" });
+  return s === hoy ? `Hoy, ${base}` : s === man ? `Mañana, ${base}` : base.charAt(0).toUpperCase() + base.slice(1);
+}
+
+// WhatsApp: números argentinos con o sin 0/15/54
+export function waLink(numero, texto = "") {
+  let d = String(numero || "").replace(/\D+/g, "").replace(/^0+/, "");
+  if (!d) return "";
+  if (d.startsWith("54")) d = d.slice(2);
+  if (d.startsWith("9")) d = d.slice(1);
+  // Con el 15 quedan 12 dígitos: se saca el 15 que va después de la característica
+  if (d.length === 12) {
+    if (d.startsWith("11") && d.slice(2, 4) === "15") d = "11" + d.slice(4);
+    else if (d.slice(3, 5) === "15") d = d.slice(0, 3) + d.slice(5);
+    else if (d.slice(4, 6) === "15") d = d.slice(0, 4) + d.slice(6);
+  }
+  return `https://wa.me/549${d}${texto ? `?text=${encodeURIComponent(texto)}` : ""}`;
+}
+
+// ── Recordatorios (vencimientos) ──
+export function estadoRecordatorio(r) {
+  const dias = Math.ceil((deFechaStr(r.vence) - deFechaStr(fechaStr())) / 86400000);
+  return { dias, estado: dias < 0 ? "vencido" : dias <= (Number(r.avisar) || 15) ? "proximo" : "ok" };
+}
 
 // ── Insumos y recetas ──
 export const UNIDADES = { kg: "kg", g: "g", l: "l", ml: "ml", u: "u." };

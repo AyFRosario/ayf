@@ -9,6 +9,8 @@ import { S, puede, MEDIOS, itemsDe, totalItems, log } from "../store.js";
 import { db, inc } from "../db.js";
 import { esc, fmt, num, hora, fechaHora, durTxt, icon, modal, toast, confirmar, pedirTexto } from "../util.js";
 import { imprimir, ticketCierre, ticketVenta } from "../print.js";
+import { opsCuenta } from "./clientes.js";
+import { tocaRespaldo, diasSinRespaldo, descargarRespaldo } from "../respaldo.js";
 
 export function resumenJornada(j, ventas, movs) {
   const porMedio = Object.fromEntries(Object.keys(MEDIOS).map((m) => [m, 0]));
@@ -176,7 +178,7 @@ export function mount(root) {
         <div class="co-items">${(v.items || []).map((i) => `<div class="co-linea"><span>${i.cant}× ${esc(i.desc)}</span><span>${fmt(i.precio * i.cant)}</span></div>`).join("")}</div>
         ${v.descuento ? `<div class="co-linea"><span>Descuento</span><span>− ${fmt(v.descuento.monto)}</span></div>` : ""}
         <div class="co-linea total"><span>Total</span><b>${fmt(v.total)}</b></div>
-        ${(v.pagos || []).map((p) => `<div class="co-linea"><span>${MEDIOS[p.medio]}</span><span>${fmt(p.monto)}</span></div>`).join("")}`,
+        ${(v.pagos || []).map((p) => `<div class="co-linea"><span>${MEDIOS[p.medio]}${p.clienteNombre ? ` · ${esc(p.clienteNombre)}` : ""}</span><span>${fmt(p.monto)}</span></div>`).join("")}`,
       pie: `${v.estado !== "anulada" && puede("anular") ? `<button class="btn btn-peligro" data-a="anular">Anular venta</button>` : ""}
             <button class="btn" data-a="arca">${icon("externo")} ARCA</button>
             <button class="btn btn-pri" data-a="ticket">${icon("print")} Ticket</button>`,
@@ -192,6 +194,8 @@ export function mount(root) {
         const p = S.productos.find((x) => x.id === i.productoId);
         if (p?.controlStock) ops.push({ op: "update", col: "productos", id: p.id, data: { stock: inc(i.cant) } });
       }
+      // Si se cargó a una cuenta corriente, se descuenta del saldo del cliente
+      ops.push(...opsCuenta(v.pagos || [], { ventaId: v.id, desc: `Anulación Nº ${v.nro}`, signo: -1 }));
       db.batch(ops);
       log("anulacion", `Venta ${v.nro} (${v.mesaNombre}) anulada: ${fmt(v.total)} · ${motivo || "sin motivo"}`, { ventaId: v.id });
       toast("Venta anulada. El stock se devolvió.");
@@ -247,10 +251,13 @@ export function mount(root) {
       const fin = modal({
         titulo: "Caja cerrada",
         clase: "modal-chico",
-        cuerpo: `<p>Vendido: <b>${fmt(r.total)}</b> en ${r.cant} ventas.</p><p>${Math.abs(d) < 1 ? "La caja cuadró." : d > 0 ? `Sobraron ${fmt(d)}.` : `Faltaron ${fmt(-d)}.`}</p>`,
+        cuerpo: `<p>Vendido: <b>${fmt(r.total)}</b> en ${r.cant} ventas.</p><p>${Math.abs(d) < 1 ? "La caja cuadró." : d > 0 ? `Sobraron ${fmt(d)}.` : `Faltaron ${fmt(-d)}.`}</p>
+          ${puede("ajustesNegocio") && tocaRespaldo() ? `<div class="banda ambar respaldo-aviso">${icon("respaldo")}<span>${diasSinRespaldo() === Infinity ? "Todavía no descargaste ningún respaldo." : `Hace ${diasSinRespaldo()} días que no descargás un respaldo.`} Es un Excel con todo: carta, ventas, cajas, clientes y compras.</span><button class="btn chico" data-a="resp">${icon("bajar")} Descargar</button></div>` : ""}`,
         pie: `<button class="btn" data-a="imp">${icon("print")} Imprimir cierre</button><button class="btn btn-pri" data-cerrar>Listo</button>`,
       });
       fin.el.querySelector('[data-a="imp"]').onclick = () => imprimir(ticketCierre(jc, r));
+      const br = fin.el.querySelector('[data-a="resp"]');
+      if (br) br.onclick = async () => { if (await descargarRespaldo(br)) br.closest(".respaldo-aviso").innerHTML = `${icon("check")}<span>Respaldo descargado.</span>`; };
     };
   }
 

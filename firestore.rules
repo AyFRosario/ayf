@@ -101,6 +101,36 @@ service cloud.firestore {
         allow read, write: if gestion(nid);
       }
 
+      // Reservas: las cargan y sientan también los mozos
+      match /reservas/{id} {
+        allow read, write: if personal(nid);
+      }
+
+      // Compras (y pagos a proveedores) y proveedores: solo dueño y encargado
+      match /proveedores/{id} {
+        allow read, write: if gestion(nid);
+      }
+      match /compras/{id} {
+        allow read, write: if gestion(nid);
+      }
+
+      // Clientes con cuenta corriente. Quien cobra puede cargar una venta
+      // a la cuenta (solo cambia el saldo), pero no crear ni editar clientes.
+      match /clientes/{id} {
+        allow read: if personal(nid);
+        allow create, delete: if gestion(nid);
+        allow update: if gestion(nid) || (cobra(nid) && soloCambia(['saldo', 'ultimoMov']));
+      }
+      match /movClientes/{id} {
+        allow read: if gestion(nid);
+        allow create: if cobra(nid);
+      }
+
+      // Vencimientos del local (matafuegos, plagas, habilitación…)
+      match /recordatorios/{id} {
+        allow read, write: if gestion(nid);
+      }
+
       // Carta pública: la lee carta.html sin iniciar sesión (código QR de las mesas)
       match /publico/{doc} {
         allow read: if true;
