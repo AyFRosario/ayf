@@ -48,6 +48,19 @@ function conv(data) {
   return out;
 }
 
+function restricciones(opts) {
+  const cons = [];
+  for (const [campo, op, valor] of opts.where || []) cons.push(F.where(campo, op, valor));
+  if (opts.orderBy) cons.push(F.orderBy(opts.orderBy[0], opts.orderBy[1] || "asc"));
+  if (opts.limit) cons.push(F.limit(opts.limit));
+  return cons;
+}
+
+export async function query(col, opts) {
+  const s = await F.getDocs(F.query(colRef(col), ...restricciones(opts)));
+  return s.docs.map((d) => ({ id: d.id, ...d.data() }));
+}
+
 export function listen(col, opts, cb) {
   const onE = (e) => onErr(e, "leer " + col);
   if (opts.id) {
@@ -58,12 +71,8 @@ export function listen(col, opts, cb) {
       onE
     );
   }
-  const cons = [];
-  for (const [campo, op, valor] of opts.where || []) cons.push(F.where(campo, op, valor));
-  if (opts.orderBy) cons.push(F.orderBy(opts.orderBy[0], opts.orderBy[1] || "asc"));
-  if (opts.limit) cons.push(F.limit(opts.limit));
   return F.onSnapshot(
-    F.query(colRef(col), ...cons),
+    F.query(colRef(col), ...restricciones(opts)),
     { includeMetadataChanges: !!opts.meta },
     (s) => cb(s.docs.map((d) => ({ id: d.id, ...d.data() })), { fromCache: s.metadata.fromCache }),
     onE

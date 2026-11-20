@@ -37,6 +37,8 @@ export const db = {
   // opts: { id } para un documento · { where:[[campo,op,valor]], orderBy:[campo,'asc'|'desc'], limit, meta }
   listen: (col, opts, cb) => impl.listen(col, opts || {}, cb),
   get: (col, id) => impl.get(col, id),
+  // Lectura de una sola vez (reportes): mismas opciones que listen, sin quedar escuchando
+  query: (col, opts) => impl.query(col, opts || {}),
   newId: (col) => impl.newId(col),
   add(col, data) {
     const id = impl.newId(col);

@@ -41,8 +41,8 @@ export const SECTORES = { cocina: "Cocina", barra: "Barra", ninguno: "Lo sirve e
 export const ESTADOS_ITEM = { nuevo: "Sin enviar", pendiente: "Pendiente", preparando: "En preparación", listo: "Listo", entregado: "Entregado", anulado: "Anulado" };
 
 const PERMISOS = {
-  dueno: ["salon", "mesa", "cocina", "caja", "productos", "usuarios", "ajustes", "ajustesNegocio", "anular"],
-  encargado: ["salon", "mesa", "cocina", "caja", "productos", "ajustes", "ajustesNegocio", "anular"],
+  dueno: ["salon", "mesa", "cocina", "caja", "reportes", "productos", "usuarios", "ajustes", "ajustesNegocio", "anular"],
+  encargado: ["salon", "mesa", "cocina", "caja", "reportes", "productos", "ajustes", "ajustesNegocio", "anular"],
   mozo: ["salon", "mesa", "ajustes"],
   cocina: ["cocina", "ajustes"],
 };

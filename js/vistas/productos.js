@@ -17,7 +17,7 @@ export function mount(root) {
       <div class="prod-barra">
         <div class="input-icono">${icon("buscar")}<input id="pBusq" class="input" type="search" placeholder="Buscar producto o código…" autocomplete="off"></div>
         <div class="prod-botones">
-          <button class="btn" data-act="ingreso">${icon("scan")} Ingreso de mercadería</button>
+          <button class="btn" data-act="escanear">${icon("scan")} Escanear</button>
           <button class="btn" data-act="tanda">${icon("dinero")} Precios en tanda</button>
           <button class="btn" data-act="excel">${icon("tabla")} Excel</button>
           <button class="btn btn-pri" data-act="nuevo">${icon("mas")} Producto</button>
@@ -61,10 +61,10 @@ export function mount(root) {
   }
 
   // ── Alta / edición ──
-  function editar(p = null, codigoInicial = "") {
+  function editar(p = null, codigoInicial = "", stockInicial = 0) {
     const cats = categorias();
     const nuevo = !p;
-    p = p || { nombre: "", categoria: cats[0] || "", precio: "", sector: codigoInicial ? "ninguno" : "cocina", codigo: codigoInicial, controlStock: !!codigoInicial, stock: 0, stockMin: 0, activo: true, enCarta: true, descripcion: "" };
+    p = p || { nombre: "", categoria: cats[0] || "", precio: "", sector: codigoInicial ? "ninguno" : "cocina", codigo: codigoInicial, controlStock: !!codigoInicial, stock: stockInicial, stockMin: 0, activo: true, enCarta: true, descripcion: "" };
     const m = modal({
       titulo: nuevo ? "Nuevo producto" : "Editar producto",
       cuerpo: `<form class="form" id="fProd">
@@ -151,7 +151,7 @@ export function mount(root) {
   function ingreso() {
     let cantidad = Number(localStorage.getItem("af_ingreso_cant")) || 1;
     const sesion = new Map(); // id → cantidad sumada
-    const desconocidos = new Set();
+    const desconocidos = new Map(); // código → unidades escaneadas
     const chips = [1, 6, 12, 24];
     const promesa = abrirEscaner({
       titulo: "Ingreso de mercadería",
@@ -159,7 +159,7 @@ export function mount(root) {
       extraHtml: `<div class="esc-cantidad"><span>Suma por cada escaneo:</span>${chips.map((n) => `<button type="button" class="chip claro" data-cant="${n}">${n}</button>`).join("")}<button type="button" class="chip claro" data-cant="otra">Otra</button></div>`,
       onCodigo(codigo) {
         const p = productoPorCodigo(codigo);
-        if (!p) { desconocidos.add(codigo); return { ok: false, texto: `${codigo}: no está cargado. Lo das de alta al terminar.` }; }
+        if (!p) { desconocidos.set(codigo, (desconocidos.get(codigo) || 0) + cantidad); return { ok: false, texto: `${codigo}: no está cargado. Al terminar lo asignás a un producto.` }; }
         db.update("productos", p.id, { controlStock: true, stock: inc(cantidad) });
         sesion.set(p.id, (sesion.get(p.id) || 0) + cantidad);
         return { ok: true, texto: `+${cantidad} ${p.nombre} · ahora ${fmtCant((Number(p.stock) || 0) + cantidad)}` };
@@ -187,7 +187,9 @@ export function mount(root) {
         titulo: "Ingreso de mercadería",
         cuerpo: `
           ${filas.length ? `<div class="lista">${filas.map((f) => `<div class="fila-lista"><div><b>${esc(f.p.nombre)}</b><small>stock actual ${fmtCant(f.p.stock)}</small></div><span class="pos">+${f.n}</span><button class="btn chico" data-deshacer="${esc(f.p.id)}" data-n="${f.n}">Deshacer</button></div>`).join("")}</div>` : ""}
-          ${desconocidos.size ? `<h4 class="subtitulo">Códigos sin cargar</h4><div class="lista">${[...desconocidos].map((c) => `<div class="fila-lista"><div><b>${esc(c)}</b></div><button class="btn chico btn-pri" data-alta="${esc(c)}">Dar de alta</button></div>`).join("")}</div>` : ""}`,
+          ${desconocidos.size ? `<h4 class="subtitulo">Códigos sin cargar</h4><p class="ayuda">Si el producto ya existe en la carta (por ejemplo, lo importaste desde Excel), asignale el código: se guarda y se suman las unidades. Si es nuevo, dalo de alta.</p>
+            <div class="lista">${[...desconocidos].map(([c, n]) => `<div class="fila-lista"><div><b>${esc(c)}</b><small>${n} unidad${n === 1 ? "" : "es"} escaneada${n === 1 ? "" : "s"}</small></div>
+              <button class="btn chico btn-pri" data-asignar="${esc(c)}" data-n="${n}">Asignar a…</button><button class="btn chico" data-alta="${esc(c)}" data-n="${n}">Nuevo</button></div>`).join("")}</div>` : ""}`,
         pie: `<button class="btn btn-pri" data-cerrar>Listo</button>`,
       });
       m.el.addEventListener("click", (e) => {
@@ -199,9 +201,129 @@ export function mount(root) {
           return;
         }
         const a = e.target.closest("[data-alta]");
-        if (a) { a.closest(".fila-lista").remove(); editar(null, a.dataset.alta); }
+        if (a) { a.closest(".fila-lista").remove(); editar(null, a.dataset.alta, Number(a.dataset.n) || 0); return; }
+        const as = e.target.closest("[data-asignar]");
+        if (as) {
+          const codigo = as.dataset.asignar, n = Number(as.dataset.n) || 0;
+          elegirProducto(`¿De qué producto es el código ${codigo}?`, (p) => {
+            db.update("productos", p.id, { codigo, controlStock: true, stock: inc(n) });
+            log("stock", `Código ${codigo} asignado a ${p.nombre} · ingreso +${n}`);
+            toast(`${p.nombre}: código guardado y +${n}`);
+            as.closest(".fila-lista").remove();
+          });
+        }
       });
     });
+  }
+
+  function menuEscanear() {
+    const sinCod = S.productos.filter((p) => p.activo !== false && !p.codigo).length;
+    const m = modal({
+      titulo: "Escanear",
+      clase: "modal-chico",
+      cuerpo: `<div class="menu-lista">
+        <button data-e="asignar">${icon("scan")}<span><b>Asignar códigos</b><small>Te muestra uno por uno los productos sin código (${sinCod}) y los vas escaneando. Ideal para las bebidas recién importadas.</small></span></button>
+        <button data-e="ingreso">${icon("productos")}<span><b>Ingreso de mercadería</b><small>Cada escaneo suma stock (de a 1, 6, 12 o 24).</small></span></button>
+      </div>`,
+    });
+    m.el.addEventListener("click", (e) => {
+      const b = e.target.closest("[data-e]");
+      if (!b) return;
+      m.cerrar();
+      b.dataset.e === "asignar" ? asignarCodigos() : ingreso();
+    });
+  }
+
+  // ── Asignar códigos de barras en serie ──
+  function asignarCodigos() {
+    const sinCodigo = S.productos.filter((p) => p.activo !== false && !p.codigo);
+    if (!sinCodigo.length) return toast("Todos los productos activos ya tienen código");
+    const delMozo = sinCodigo.filter((p) => p.sector === "ninguno");
+    if (!delMozo.length) return asignarSerie(sinCodigo);
+    const m = modal({
+      titulo: "Asignar códigos de barras",
+      clase: "modal-chico",
+      cuerpo: `<p class="ayuda">Te muestro cada producto sin código: escaneás el envase y pasa al siguiente. Si alguno no lo tenés a mano, lo salteás.</p>
+        <div class="menu-lista">
+          <button data-g="mozo">${icon("scan")}<span><b>Bebidas y envasados (${delMozo.length})</b><small>Los que sirve el mozo y todavía no tienen código.</small></span></button>
+          <button data-g="todos">${icon("scan")}<span><b>Todos los que no tienen código (${sinCodigo.length})</b><small>Incluye platos de cocina y barra, que normalmente no llevan código.</small></span></button>
+        </div>`,
+    });
+    m.el.addEventListener("click", (e) => {
+      const b = e.target.closest("[data-g]");
+      if (!b) return;
+      m.cerrar();
+      asignarSerie(b.dataset.g === "mozo" ? delMozo : sinCodigo);
+    });
+  }
+
+  function asignarSerie(lista) {
+    const cola = [...lista];
+    let i = 0, asignados = 0;
+    const promesa = abrirEscaner({
+      titulo: "Asignar códigos",
+      continuo: true,
+      extraHtml: `<div class="esc-asignar"><small id="asgPos"></small><b id="asgNom"></b>
+        <div class="esc-asg-botones"><button type="button" class="chip claro" data-asg="atras">Anterior</button><button type="button" class="chip claro" data-asg="saltear">Saltear</button></div></div>`,
+      onCodigo(codigo) {
+        const p = cola[i];
+        if (!p) return { ok: false, texto: "Ya terminaste la lista" };
+        const otro = productoPorCodigo(codigo);
+        if (otro && otro.id !== p.id) return { ok: false, texto: `Ese código ya es de "${otro.nombre}"` };
+        db.update("productos", p.id, { codigo });
+        asignados++;
+        i++;
+        pintar();
+        if (i >= cola.length) { setTimeout(cerrarEsc, 1200); return { ok: true, texto: `${p.nombre} ✓ · ¡Terminaste!` }; }
+        return { ok: true, texto: `${p.nombre} ✓` };
+      },
+    });
+    const el = document.querySelector(".escaner");
+    const cerrarEsc = () => el?.querySelector("[data-cerrar]")?.click();
+    function pintar() {
+      if (!el) return;
+      el.querySelector("#asgPos").textContent = i < cola.length ? `${i + 1} de ${cola.length} · escaneá:` : "Lista terminada";
+      el.querySelector("#asgNom").textContent = cola[i]?.nombre || "✓";
+    }
+    el?.addEventListener("click", (e) => {
+      const b = e.target.closest("[data-asg]");
+      if (!b) return;
+      i = b.dataset.asg === "saltear" ? i + 1 : Math.max(0, i - 1);
+      pintar();
+      if (i >= cola.length) cerrarEsc();
+    });
+    pintar();
+    promesa.then(() => {
+      if (!asignados) return;
+      log("producto", `Códigos de barras asignados a ${asignados} productos`);
+      toast(`${asignados} código${asignados === 1 ? "" : "s"} cargado${asignados === 1 ? "" : "s"}`);
+    });
+  }
+
+  // Selector de producto con buscador (para asignar un código suelto)
+  function elegirProducto(titulo, alElegir) {
+    const m = modal({
+      titulo,
+      cuerpo: `<div class="input-icono">${icon("buscar")}<input class="input" id="epB" placeholder="Buscar producto…" autocomplete="off" autofocus></div><div class="lista" id="epL"></div>`,
+    });
+    const inp = m.el.querySelector("#epB");
+    const pintar = () => {
+      const q = inp.value.trim();
+      const act = S.productos.filter((p) => p.activo !== false);
+      const l = q ? buscar(act, q) : [...act.filter((p) => !p.codigo && p.sector === "ninguno"), ...act.filter((p) => !p.codigo && p.sector !== "ninguno")];
+      m.el.querySelector("#epL").innerHTML = l.slice(0, 40).map((p) => `<button class="fila-lista boton" data-p="${esc(p.id)}"><div><b>${esc(p.nombre)}</b><small>${esc(p.categoria || "")}${p.codigo ? ` · ya tiene el código ${esc(p.codigo)}` : ""}</small></div></button>`).join("")
+        || `<p class="ayuda">No encontré productos${q ? ` para "${esc(q)}"` : " sin código"}.</p>`;
+    };
+    inp.addEventListener("input", pintar);
+    m.el.addEventListener("click", async (e) => {
+      const b = e.target.closest("[data-p]");
+      if (!b) return;
+      const p = S.productos.find((x) => x.id === b.dataset.p);
+      if (p.codigo && !(await confirmar(`${p.nombre} ya tiene el código ${p.codigo}. ¿Reemplazarlo?`, { ok: "Reemplazar" }))) return;
+      m.cerrar();
+      alElegir(p);
+    });
+    pintar();
   }
 
   // ── Precios en tanda (de Dairus) ──
@@ -253,7 +375,9 @@ export function mount(root) {
     const a = e.target.closest("[data-act]");
     if (!a) return;
     if (a.dataset.act === "nuevo") editar();
+    else if (a.dataset.act === "escanear") menuEscanear();
     else if (a.dataset.act === "ingreso") ingreso();
+    else if (a.dataset.act === "asignar") asignarCodigos();
     else if (a.dataset.act === "tanda") tanda();
     else if (a.dataset.act === "excel") menuExcel();
     else if (a.dataset.act === "importar") abrirImportador();

@@ -13,7 +13,7 @@ import { esc, fmt, num, normalizar, icon, modal, toast, confirmar } from "./util
 
 const XLSX_URL = "https://cdn.sheetjs.com/xlsx-0.20.3/package/xlsx.mjs";
 let xlsxP = null;
-function cargarXLSX() {
+export function cargarXLSX() {
   if (!xlsxP) xlsxP = import(XLSX_URL).catch((e) => { xlsxP = null; throw e; });
   return xlsxP;
 }

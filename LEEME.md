@@ -1,4 +1,4 @@
-# A&F · Gestión del bar — versión 0.3
+# A&F · Gestión del bar — versión 0.4
 
 PWA para celular, tablet y PC. HTML, CSS y JS sin compilar, igual que el resto de JPSoft. Se publica en GitHub Pages y usa Firebase (Firestore + Auth) con caché sin conexión.
 
@@ -88,6 +88,17 @@ El lector de Excel (SheetJS) se descarga la primera vez que se usa.
 - **Sin señal:** el teléfono del cliente guarda la última carta que vio y la muestra si se queda sin conexión.
 - **Requisito:** **hay que volver a publicar `firestore.rules`**, que ahora incluye la regla `publico`.
 
+## 3 quater. Reportes
+
+En **Reportes** (encargado y dueño) se elige el período: última jornada, últimos 7 días, este mes, mes anterior o fechas a elección. Cada número se compara con el período anterior equivalente.
+
+- **Totales:** vendido, mesas cobradas, ticket promedio, gasto por persona, descuentos y ventas anuladas (las anuladas no se suman).
+- **Gráficos:** ventas por día, hora de llegada de las mesas, medios de pago y ventas por categoría. Pasando el mouse o tocando una barra se ve el detalle.
+- **Rankings:** productos más vendidos (y los menos pedidos) y rendimiento por mozo.
+- **Excel:** exporta el período con las hojas Resumen, Ventas, Productos, Mozos y Días.
+
+El **día comercial empieza a las 6 de la mañana**: lo que se cobra a las 2 de la madrugada cuenta para la noche anterior.
+
 ## 4. Escáner de códigos
 
 - **Android (Chrome):** usa el lector que trae el navegador. Es rápido y funciona sin conexión.
@@ -96,7 +107,8 @@ El lector de Excel (SheetJS) se descarga la primera vez que se usa.
 - **Dónde se escanea:**
   - en la comanda, para cargar una lata o una botella a la mesa;
   - en Productos, para cargar el código;
-  - en **Ingreso de mercadería**, donde cada escaneo suma stock y se puede elegir de a 1, 6, 12 o 24. Los códigos que no existen se dan de alta al terminar.
+  - en **Productos → Escanear → Asignar códigos**, que muestra uno por uno los productos sin código (primero bebidas y envasados): escaneás el envase y pasa al siguiente, con botones para saltear o volver;
+  - en **Productos → Escanear → Ingreso de mercadería**, donde cada escaneo suma stock y se puede elegir de a 1, 6, 12 o 24. Los códigos que no existen se pueden **asignar a un producto que ya está cargado** (y se suman las unidades) o dar de alta como producto nuevo.
 - La cámara solo funciona con `https` (GitHub Pages ya lo tiene) o en `localhost`.
 
 ## 5. Sin conexión

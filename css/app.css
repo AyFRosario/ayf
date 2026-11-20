@@ -201,6 +201,7 @@ select.input { appearance: none; background-image: linear-gradient(45deg, transp
 .toast.sale { opacity: 0; transition: opacity 0.35s; }
 @keyframes entra { from { opacity: 0; transform: translateY(8px); } }
 @media (min-width: 900px) { .toasts { bottom: 24px; } }
+body:has(.escaner) .toasts { bottom: auto; top: calc(64px + env(safe-area-inset-top)); }
 
 /* ── Modales ── */
 .modal-fondo { position: fixed; inset: 0; z-index: 100; background: rgba(20, 20, 20, 0.45); display: flex; align-items: flex-end; justify-content: center; animation: fundido 0.15s; }
@@ -524,6 +525,57 @@ select.input { appearance: none; background-image: linear-gradient(45deg, transp
 .mesa-edit .btn-texto { text-decoration: none; color: var(--tinta); font-weight: 700; }
 .mesa-edit small { color: var(--texto3); }
 .mesa-edit .btn-icono { width: 36px; height: 36px; color: var(--texto3); }
+
+/* ── Asignar códigos (sobre la cámara) ── */
+.esc-asignar { display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; }
+.esc-asignar small { color: #bbb; font-size: 13px; }
+.esc-asignar b { font-size: 22px; line-height: 1.2; }
+.esc-asg-botones { display: flex; gap: 8px; margin-top: 4px; }
+
+/* ── Reportes ── */
+.rep-filtros { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+.rep-filtros .chips { flex: 1 1 320px; min-width: 0; }
+.rep-rango { display: flex; align-items: center; gap: 6px; font-size: 14px; }
+.rep-rango .input { width: 150px; }
+.rep-rango-txt { margin-bottom: 12px; }
+.kpi .delta { font-size: 12px; font-weight: 700; }
+.delta.sube { color: var(--verde); }
+.delta.baja { color: var(--rojo); }
+.delta.neutro { color: var(--texto3); font-weight: 500; }
+.rep-grid { display: grid; gap: 0 14px; }
+@media (min-width: 900px) { .rep-grid { grid-template-columns: 1fr 1fr; } }
+.cols { display: flex; align-items: flex-end; gap: 2px; height: calc(var(--alto) + 34px); padding-top: 18px; border-bottom: 1px solid var(--borde); }
+.col { flex: 1; min-width: 0; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; position: relative; cursor: default; }
+.col i { display: block; width: min(24px, 70%); min-height: 1px; background: var(--tinta); border-radius: 4px 4px 0 0; max-height: var(--alto); }
+.col:hover i { background: #4a4a4a; }
+.col small { position: absolute; bottom: -20px; font-size: 11px; color: var(--texto3); white-space: nowrap; }
+.col-valor { font-size: 11px; font-weight: 700; color: var(--texto2); margin-bottom: 3px; white-space: nowrap; }
+.cols + * { margin-top: 26px; }
+.tarjeta .cols { margin-bottom: 24px; }
+.barras { display: flex; flex-direction: column; gap: 8px; }
+.barra-fila { display: grid; grid-template-columns: minmax(90px, 32%) 1fr auto; align-items: center; gap: 10px; font-size: 14px; }
+.bf-et { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bf-pista { height: 14px; display: flex; align-items: center; }
+.bf-pista i { display: block; height: 12px; min-width: 2px; background: var(--tinta); border-radius: 0 4px 4px 0; }
+.bf-val { font-family: var(--fm); font-weight: 500; white-space: nowrap; }
+.tabla-rep { display: flex; flex-direction: column; font-size: 14px; }
+.tabla-rep .tr { display: grid; gap: 10px; align-items: center; padding: 8px 2px; border-bottom: 1px solid var(--borde); }
+.tabla-rep .tr:last-child { border-bottom: 0; }
+.tabla-rep .tr.cab { font-size: 12px; font-weight: 700; color: var(--texto3); text-transform: uppercase; letter-spacing: 0.04em; }
+.tabla-rep.prods .tr { grid-template-columns: 1fr minmax(90px, 30%) 96px; }
+.tabla-rep.prods .tr span:last-child, .tabla-rep.mozos .tr span:not(:first-child) { text-align: right; font-family: var(--fm); }
+.tabla-rep.prods .tr.cab span:last-child, .tabla-rep.mozos .tr.cab span:not(:first-child) { font-family: var(--f); }
+.tabla-rep small { color: var(--texto3); font-family: var(--fm); margin-right: 4px; }
+.tabla-rep em { display: block; font-style: normal; font-size: 12px; color: var(--texto3); }
+.tr-cant { display: flex; align-items: center; gap: 8px; }
+.tr-cant i { display: block; height: 10px; min-width: 2px; background: var(--tinta); border-radius: 0 4px 4px 0; }
+.tr-cant b { font-family: var(--fm); font-weight: 500; }
+.tabla-rep.mozos .tr { grid-template-columns: 1fr 60px 90px 110px 110px; }
+@media (max-width: 599px) {
+  .tabla-rep.mozos .tr { grid-template-columns: 1fr 44px 96px; }
+  .tabla-rep.mozos .tr span:nth-child(3), .tabla-rep.mozos .tr span:nth-child(5) { display: none; }
+}
+.tooltip { position: fixed; z-index: 300; pointer-events: none; background: var(--tinta); color: #fff; font-size: 13px; font-weight: 600; padding: 6px 10px; border-radius: 8px; box-shadow: 0 4px 14px rgba(0,0,0,.2); max-width: 260px; }
 
 /* ── Hoja de códigos QR ── */
 .vista-hoja { background: #fff; border: 1px solid var(--borde); border-radius: var(--radio-s); padding: 14px; margin-top: 12px; max-height: 60vh; overflow-y: auto; }

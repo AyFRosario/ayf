@@ -93,6 +93,10 @@ export function listen(col, opts, cb) {
   return () => { s.activo = false; subs.delete(s); };
 }
 
+export async function query(col, opts) {
+  return correr({ col, opts });
+}
+
 export async function get(col, id) {
   return correr({ col, opts: { id } });
 }

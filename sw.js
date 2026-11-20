@@ -3,13 +3,14 @@
 //   apenas se publican en GitHub Pages) y, sin conexión, la copia guardada.
 // · Librerías externas (Firebase, fuentes, lector de códigos): primero la copia
 //   guardada, porque sus direcciones tienen versión fija.
-const VERSION = "af-0.3.0";
+const VERSION = "af-0.4.0";
 const APP = [
   "./", "index.html", "manifest.json", "css/app.css",
   "js/app.js", "js/config.js", "js/db.js", "js/db-demo.js", "js/db-firebase.js", "js/store.js",
   "js/util.js", "js/buscar.js", "js/scanner.js", "js/print.js", "js/importar.js", "js/publicar.js", "js/vendor/qrcode.mjs",
   "js/vistas/salon.js", "js/vistas/mesa.js", "js/vistas/cobro.js", "js/vistas/cocina.js",
-  "js/vistas/caja.js", "js/vistas/productos.js", "js/vistas/usuarios.js", "js/vistas/ajustes.js",
+  "js/vistas/caja.js", "js/vistas/reportes.js", "js/vistas/productos.js", "js/vistas/usuarios.js", "js/vistas/ajustes.js",
+  "carta.html", "css/carta.css", "js/carta.js",
   "img/logo.svg", "img/logo-blanco.svg", "img/icon-192.png", "img/icon-512.png",
 ];
 const EXTERNOS = ["www.gstatic.com", "fonts.googleapis.com", "fonts.gstatic.com", "fastly.jsdelivr.net", "cdn.jsdelivr.net", "cdn.sheetjs.com"];

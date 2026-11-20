@@ -8,12 +8,13 @@ import { $, esc, icon, toast, modal, confirmar, iniciales, fmt } from "./util.js
 import { reconectarImpresora } from "./print.js";
 import { iniciarPublicacion, detenerPublicacion } from "./publicar.js";
 
-const VERSION = "0.3.0";
+const VERSION = "0.4.0";
 import * as vSalon from "./vistas/salon.js";
 import * as vMesa from "./vistas/mesa.js";
 import * as vCocina from "./vistas/cocina.js";
 import * as vCaja from "./vistas/caja.js";
 import * as vProductos from "./vistas/productos.js";
+import * as vReportes from "./vistas/reportes.js";
 import * as vUsuarios from "./vistas/usuarios.js";
 import * as vAjustes from "./vistas/ajustes.js";
 
@@ -22,6 +23,7 @@ const RUTAS = {
   mesa: { mod: vMesa, perm: "mesa", titulo: "Mesa" },
   cocina: { mod: vCocina, perm: "cocina", titulo: "Cocina y barra", icono: "cocina", menu: true },
   caja: { mod: vCaja, perm: "caja", titulo: "Caja", icono: "caja", menu: true },
+  reportes: { mod: vReportes, perm: "reportes", titulo: "Reportes", icono: "grafico", menu: true },
   productos: { mod: vProductos, perm: "productos", titulo: "Productos", icono: "productos", menu: true },
   usuarios: { mod: vUsuarios, perm: "usuarios", titulo: "Usuarios", icono: "usuarios", menu: true },
   ajustes: { mod: vAjustes, perm: "ajustes", titulo: "Ajustes", icono: "ajustes", menu: true },
