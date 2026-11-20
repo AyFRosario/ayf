@@ -71,7 +71,7 @@ function deducirSector(nombre, categoria, cod) {
 }
 
 // "CERVEZAS" o "cervezas" → la categoría que ya existe ("Cervezas")
-function ajustarCategoria(c) {
+export function ajustarCategoria(c) {
   c = txt(c);
   if (!c) return "";
   const existente = categorias().find((x) => normalizar(x) === normalizar(c));

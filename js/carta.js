@@ -6,6 +6,7 @@
 // Guarda la última carta en el teléfono: si no hay señal, muestra esa.
 import { CONFIG } from "./config.js";
 import { buscar } from "./buscar.js";
+import { firmaHTML, contactoHTML } from "./firma.js";
 
 const params = new URLSearchParams(location.search);
 const DEMO = !CONFIG.firebase || params.has("demo");
@@ -83,7 +84,7 @@ function render() {
   const conDatos = c.cats.reduce((s, x) => s + x.p.length, 0);
   raiz.innerHTML = `
     <header class="cab">
-      <img src="img/logo.svg" alt="${esc(c.nombre)}" class="logo">
+      <img src="img/logo.svg" alt="${esc(c.nombre)}" class="logo" width="620" height="460">
       ${c.lema ? `<p class="lema">${esc(c.lema)}</p>` : ""}
       ${mesa ? `<p class="mesa">${esc(mesa)}</p>` : ""}
       ${!mesa && c.reservas !== false && waLink(c) ? `<p><button class="btn-reservar" id="btnRes">Reservar mesa</button></p>` : ""}
@@ -91,23 +92,20 @@ function render() {
     ${conDatos ? `
     <div class="barra">
       <input id="busq" type="search" placeholder="Buscar en la carta…" autocomplete="off" value="${esc(q)}" aria-label="Buscar en la carta">
-      <nav class="cats" id="cats">${c.cats.map((x, i) => `<a href="#cat${i}" data-i="${i}">${esc(x.n)}</a>`).join("")}</nav>
+      <nav class="cats" id="cats" aria-label="Secciones de la carta">${c.cats.map((x, i) => `<button type="button" data-i="${i}">${esc(x.n)}</button>`).join("")}</nav>
     </div>
     <div id="lista"></div>` : `<p class="estado">La carta se está preparando. ¡Volvé a mirar en un rato!</p>`}
     <footer class="pie">
-      ${c.direccion ? `<p>${esc(c.direccion)}</p>` : ""}
-      ${c.horario ? `<p>${esc(c.horario)}</p>` : ""}
-      <p class="redes">
-        ${c.instagram ? `<a href="https://instagram.com/${esc(c.instagram.replace(/^@/, ""))}" target="_blank" rel="noopener">Instagram @${esc(c.instagram.replace(/^@/, ""))}</a>` : ""}
-        ${waLink(c) ? `<a href="${waLink(c)}" target="_blank" rel="noopener">WhatsApp</a>` : ""}
-      </p>
+      ${c.horario ? `<div class="horario">${RELOJ}<span>${esc(c.horario)}</span></div>` : ""}
+      ${contactoHTML(c)}
       <p class="nota">Precios en pesos argentinos.</p>
+      ${firmaHTML()}
     </footer>`;
   document.getElementById("btnRes")?.addEventListener("click", abrirReserva);
   if (!conDatos) return;
   renderLista();
   const busq = document.getElementById("busq");
-  busq.addEventListener("input", () => { q = busq.value.trim(); renderLista(); });
+  busq.addEventListener("input", () => { q = busq.value.trim(); renderLista(); if (!q) { marcada = -1; elegida = null; alDesplazar(); } });
   observarCategorias();
 }
 
@@ -137,22 +135,71 @@ function item(p) {
   </article>`;
 }
 
-// Marca en el menú de categorías la que se está viendo
-let obs = null;
-function observarCategorias() {
-  obs?.disconnect();
-  const links = [...document.querySelectorAll("#cats a")];
-  obs = new IntersectionObserver((ents) => {
-    for (const e of ents) {
-      if (!e.isIntersecting) continue;
-      const i = e.target.id.replace("cat", "");
-      links.forEach((a) => a.classList.toggle("activo", a.dataset.i === i));
-      const activo = links[Number(i)];
-      activo?.scrollIntoView({ block: "nearest", inline: "center", behavior: "smooth" });
-    }
-  }, { rootMargin: "-120px 0px -70% 0px" });
-  document.querySelectorAll(".cat[id]").forEach((s) => obs.observe(s));
+// ── Etiquetas de categorías ──
+// Marca la que se está viendo. Ojo: nada de scrollIntoView acá, porque en
+// Android corta el desplazamiento con el dedo a mitad de camino. La fila de
+// etiquetas se mueve sola, de costado, sin tocar el scroll de la página.
+let marcada = -1;
+let elegida = null; // la que se tocó: queda marcada hasta que la persona vuelva a desplazar
+const altoBarra = () => document.querySelector(".barra")?.getBoundingClientRect().height || 0;
+
+function marcar(i) {
+  marcada = i;
+  const cont = document.getElementById("cats");
+  if (!cont) return;
+  cont.querySelectorAll("button").forEach((b) => {
+    const si = Number(b.dataset.i) === i;
+    b.classList.toggle("activo", si);
+    if (si) b.setAttribute("aria-current", "true"); else b.removeAttribute("aria-current");
+  });
+  const b = cont.querySelector(`[data-i="${i}"]`);
+  if (b) cont.scrollTo({ left: b.offsetLeft - (cont.clientWidth - b.offsetWidth) / 2, behavior: "smooth" });
 }
+
+function seccionActual() {
+  const secs = [...document.querySelectorAll(".cat[id]")];
+  if (!secs.length) return -1;
+  if (innerHeight + scrollY >= document.documentElement.scrollHeight - 4) return secs.length - 1;
+  const linea = altoBarra() + 24;
+  let act = 0;
+  secs.forEach((s, k) => { if (s.getBoundingClientRect().top <= linea) act = k; });
+  return act;
+}
+
+function irA(i) {
+  const sec = document.getElementById("cat" + i);
+  if (!sec) return;
+  elegida = i;
+  marcar(i);
+  const y = sec.getBoundingClientRect().top + scrollY - altoBarra() + 1;
+  window.scrollTo({ top: Math.max(0, y), behavior: "smooth" });
+}
+
+let pendiente = false;
+function alDesplazar() {
+  if (pendiente) return;
+  pendiente = true;
+  requestAnimationFrame(() => {
+    pendiente = false;
+    if (elegida !== null || q) return;
+    const i = seccionActual();
+    if (i !== marcada && i >= 0) marcar(i);
+  });
+}
+const soltarElegida = () => { if (elegida !== null) { elegida = null; alDesplazar(); } };
+addEventListener("scroll", alDesplazar, { passive: true });
+for (const ev of ["wheel", "touchstart", "keydown"]) addEventListener(ev, soltarElegida, { passive: true });
+
+function observarCategorias() {
+  document.getElementById("cats")?.addEventListener("click", (e) => {
+    const b = e.target.closest("[data-i]");
+    if (b) irA(Number(b.dataset.i));
+  });
+  marcada = -1;
+  marcar(Math.max(0, seccionActual()));
+}
+
+const RELOJ = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 6.8V12l3.4 2"/></svg>';
 
 async function iniciar() {
   let guardada = null;

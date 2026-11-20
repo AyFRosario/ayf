@@ -8,6 +8,9 @@ import { imprimir, imprimirHoja, ticketPrueba, conectarBluetooth, conectarUSB, b
 import { urlCarta } from "../publicar.js";
 import { qrcode } from "../vendor/qrcode.mjs";
 import { descargarRespaldo, diasSinRespaldo } from "../respaldo.js";
+import { firmaHTML, iconoContacto, usuarioRed } from "../firma.js";
+
+const VERSION_APP = "0.7.0";
 
 const MODOS = {
   ninguna: { t: "Sin impresora", d: "Este dispositivo no imprime." },
@@ -24,6 +27,7 @@ export function mount(root) {
       <section class="tarjeta" id="aDisp"></section>
       ${negocio ? `<section class="tarjeta" id="aCarta"></section><section class="tarjeta" id="aNeg"></section><section class="tarjeta" id="aMesas"></section><section class="tarjeta" id="aResp"></section>` : ""}
       ${MODO === "demo" ? `<section class="tarjeta"><h3>Modo demo</h3><p class="ayuda">Los datos están solo en este navegador.</p><button class="btn btn-peligro" data-act="reset">Reiniciar datos del demo</button></section>` : ""}
+      <footer class="ajustes-pie"><img src="img/logo.svg" alt="A&F"><small>Versión ${VERSION_APP}</small>${firmaHTML()}</footer>
     </div>`;
 
   // ── Este dispositivo ──
@@ -64,14 +68,18 @@ export function mount(root) {
         <label class="campo"><span>Lema (sale en los tickets)</span><input class="input" id="nLema" value="${esc(c.lema || "")}"></label>
         <label class="campo"><span>Pie del ticket</span><input class="input" id="nPie" value="${esc(c.pieTicket || "")}"></label>
         <div class="dos-col">
-          <label class="campo"><span>Dirección</span><input class="input" id="nDir" value="${esc(c.direccion || "")}" placeholder="Calle 1234, Rosario"></label>
+          <label class="campo"><span>Dirección</span><input class="input" id="nDir" value="${esc(c.direccion || "")}" placeholder="San Martín 2920"></label>
           <label class="campo"><span>Horario</span><input class="input" id="nHor" value="${esc(c.horario || "")}" placeholder="Mar a dom de 19 a 1"></label>
         </div>
         <div class="dos-col">
-          <label class="campo"><span>Instagram</span><input class="input" id="nIg" value="${esc(c.instagram || "")}" placeholder="@ayf.rosario"></label>
-          <label class="campo"><span>WhatsApp</span><input class="input" id="nWa" inputmode="tel" value="${esc(c.whatsapp || "")}" placeholder="341 555-1234"></label>
+          <label class="campo"><span>${iconoContacto("whatsapp", 16)} WhatsApp (reservas)</span><input class="input" id="nWa" inputmode="tel" value="${esc(c.whatsapp || "")}" placeholder="341 281-5624"></label>
+          <label class="campo"><span>${iconoContacto("instagram", 16)} Instagram</span><input class="input" id="nIg" value="${esc(c.instagram || "")}" placeholder="@usuario o enlace"></label>
         </div>
-        <p class="ayuda">Dirección, horario y redes aparecen al pie de la carta QR.</p>
+        <div class="dos-col">
+          <label class="campo"><span>${iconoContacto("facebook", 16)} Facebook</span><input class="input" id="nFb" value="${esc(c.facebook || "")}" placeholder="facebook.com/tu.pagina o el usuario"></label>
+          <label class="campo"><span>${iconoContacto("mapa", 16)} Enlace de Google Maps (opcional)</span><input class="input" id="nMapa" inputmode="url" value="${esc(c.mapa || "")}" placeholder="https://maps.app.goo.gl/…"></label>
+        </div>
+        <p class="ayuda">WhatsApp, Instagram, Facebook y la dirección aparecen al pie de la carta QR como enlaces directos. Los que quedan vacíos no se muestran. Si no ponés el enlace de Maps, la dirección abre una búsqueda en Google Maps.</p>
         <label class="switch"><input type="checkbox" id="nMozo" ${c.mozoCobra ? "checked" : ""}><span>Los mozos pueden cobrar</span></label>
         <label class="switch"><input type="checkbox" id="nCuenta" ${c.cuentaCorriente !== false ? "checked" : ""}><span>Permitir cobrar a cuenta corriente (clientes que pagan después)</span></label>
         <label class="switch"><input type="checkbox" id="nResCarta" ${c.reservasCarta !== false ? "checked" : ""}><span>Botón "Reservar por WhatsApp" en la carta QR</span></label>
@@ -92,7 +100,9 @@ export function mount(root) {
         medios,
         direccion: el.querySelector("#nDir").value.trim(),
         horario: el.querySelector("#nHor").value.trim(),
-        instagram: el.querySelector("#nIg").value.trim().replace(/^@/, ""),
+        instagram: usuarioRed(el.querySelector("#nIg").value),
+        facebook: el.querySelector("#nFb").value.trim(),
+        mapa: el.querySelector("#nMapa").value.trim(),
         whatsapp: el.querySelector("#nWa").value.trim(),
       });
       log("ajustes", "Datos del negocio actualizados");

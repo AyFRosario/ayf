@@ -1,4 +1,4 @@
-# A&F · Gestión del bar — versión 0.6
+# A&F — versión 0.7
 
 PWA para celular, tablet y PC. HTML, CSS y JS sin compilar, igual que el resto de JPSoft. Se publica en GitHub Pages y usa Firebase (Firestore + Auth) con caché sin conexión.
 
@@ -177,6 +177,29 @@ El **día comercial empieza a las 6 de la mañana**: lo que se cobra a las 2 de 
 - Al **cerrar la caja**, si pasaron 7 días desde el último respaldo, la app lo sugiere con un botón para descargarlo ahí mismo.
 - Los datos ya están en Firebase. El respaldo sirve como copia propia, para guardarla en el Drive o en la PC.
 
+## 3 septies. Logo, contactos y firma (v0.7)
+
+- **Logo:** debajo de A&F van las dos hojas con el tenedor, como en el cartel del bar. En el menú de la PC, el logo va sobre una tarjeta blanca. En toda la app dice solo "A&F".
+- **Íconos al instalar:** el logo ocupa casi todo el ícono.
+  - En la PC y en Windows, el ícono va sin fondo.
+  - En Android se adapta a la forma del celular (círculo, cuadrado redondeado), sobre fondo blanco.
+  - En iPhone usa `apple-touch-icon.png`.
+  - Para ver el ícono nuevo hay que desinstalar la app y volver a instalarla.
+- **Contactos de la carta QR:** van al pie, como en la carta de Dairus: WhatsApp, Instagram, Facebook y la dirección, cada uno con su logo y como enlace directo.
+  - Se cargan en **Ajustes → Negocio**. Los que quedan vacíos no aparecen.
+  - La dirección abre Google Maps. Se puede pegar el enlace exacto del local, el de "Compartir" en Maps.
+- **Firma "Desarrollado por Joaquín Pedemonte"** con WhatsApp, en:
+  - la pantalla de inicio;
+  - el pie del menú en la PC;
+  - el menú de usuario, en el celular;
+  - el final de Ajustes;
+  - la carta QR.
+- **Categorías:**
+  - en el alta de producto, el desplegable muestra todas las categorías y la opción **＋ Nueva categoría…**;
+  - en **Productos → Categorías** se renombran y se ordenan; el orden es el de la carta QR y el de la comanda;
+  - la categoría "Menúes" pasa sola a llamarse "Menús" la primera vez que un dueño o encargado abre esta versión.
+- **Carta QR:** las etiquetas de arriba quedan marcadas al tocarlas y siguen la sección que se está viendo. El desplazamiento con el dedo ya no se corta.
+
 ## 4. Escáner de códigos
 
 - **Android (Chrome):** usa el lector que trae el navegador. Es rápido y funciona sin conexión.
@@ -215,6 +238,7 @@ js/publicar.js     ← mantiene publicada la carta QR
 js/carta.js        ← página pública de la carta
 js/vendor/qrcode.mjs ← generador de QR (Kazuhiko Arase, licencia MIT)
 js/respaldo.js     ← respaldo completo en Excel
+js/firma.js        ← firma del desarrollador y contactos (WhatsApp, redes, Maps)
 js/vistas/         ← salon, mesa, cobro, cocina, caja, productos, insumos, reportes,
                      reservas, compras, clientes, recordatorios, usuarios, ajustes
 ```

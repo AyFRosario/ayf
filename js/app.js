@@ -3,12 +3,13 @@
 // ============================================================
 import { CONFIG } from "./config.js";
 import { initDB, db, auth, MODO, onError } from "./db.js";
-import { S, emit, onStore, puede, ROLES, CONFIG_DEF, fechaStr } from "./store.js";
-import { $, esc, icon, toast, modal, confirmar, iniciales, fmt } from "./util.js";
+import { S, emit, onStore, puede, ROLES, CONFIG_DEF, fechaStr, categorias } from "./store.js";
+import { firmaHTML } from "./firma.js";
+import { $, esc, icon, toast, modal, confirmar, iniciales, fmt, normalizar } from "./util.js";
 import { reconectarImpresora } from "./print.js";
 import { iniciarPublicacion, detenerPublicacion } from "./publicar.js";
 
-const VERSION = "0.6.0";
+const VERSION = "0.7.0";
 import * as vSalon from "./vistas/salon.js";
 import * as vMesa from "./vistas/mesa.js";
 import * as vCocina from "./vistas/cocina.js";
@@ -28,11 +29,11 @@ const RUTAS = {
   cocina: { mod: vCocina, perm: "cocina", titulo: "Cocina y barra", icono: "cocina", menu: true },
   caja: { mod: vCaja, perm: "caja", titulo: "Caja", icono: "caja", menu: true },
   reservas: { mod: vReservas, perm: "reservas", titulo: "Reservas", icono: "calendario", menu: true },
-  reportes: { mod: vReportes, perm: "reportes", titulo: "Reportes", icono: "grafico", menu: true, grupo: "Gestión" },
-  productos: { mod: vProductos, perm: "productos", titulo: "Productos", icono: "productos", menu: true, grupo: "Gestión" },
-  compras: { mod: vCompras, perm: "compras", titulo: "Compras", icono: "camion", menu: true, grupo: "Gestión" },
-  clientes: { mod: vClientes, perm: "clientes", titulo: "Clientes", icono: "libreta", menu: true, grupo: "Gestión" },
-  recordatorios: { mod: vRecordatorios, perm: "recordatorios", titulo: "Vencimientos", icono: "alarma", menu: true, grupo: "Gestión" },
+  reportes: { mod: vReportes, perm: "reportes", titulo: "Reportes", icono: "grafico", menu: true, grupo: "Administración" },
+  productos: { mod: vProductos, perm: "productos", titulo: "Productos", icono: "productos", menu: true, grupo: "Administración" },
+  compras: { mod: vCompras, perm: "compras", titulo: "Compras", icono: "camion", menu: true, grupo: "Administración" },
+  clientes: { mod: vClientes, perm: "clientes", titulo: "Clientes", icono: "libreta", menu: true, grupo: "Administración" },
+  recordatorios: { mod: vRecordatorios, perm: "recordatorios", titulo: "Vencimientos", icono: "alarma", menu: true, grupo: "Administración" },
   usuarios: { mod: vUsuarios, perm: "usuarios", titulo: "Usuarios", icono: "usuarios", menu: true, grupo: "Configuración" },
   ajustes: { mod: vAjustes, perm: "ajustes", titulo: "Ajustes", icono: "ajustes", menu: true, grupo: "Configuración" },
 };
@@ -52,12 +53,13 @@ function limpiar() {
   actual = null;
   iniciada = false;
   S.cargados.clear();
+  migro = false;
   detenerPublicacion();
 }
 
 function pantalla(html) {
   appEl.innerHTML = `<div class="pantalla-centro"><div class="tarjeta-login">
-    <img src="img/logo.svg" alt="A&F" class="login-logo">${html}</div></div>`;
+    <img src="img/logo.svg" alt="A&F" class="login-logo">${html}${firmaHTML("firma-login")}</div></div>`;
 }
 const cargando = (txt = "Cargando…") => pantalla(`<p class="ayuda centro">${esc(txt)}</p>`);
 
@@ -118,11 +120,23 @@ function alCambiarUsuario(u) {
   });
 }
 
+// Cambios de datos que se hacen una sola vez (los hace un dueño o encargado)
+let migro = false;
+function migraciones() {
+  if (migro || !puede("productos") || !S.cargados.has("productos") || !S.cargados.has("config")) return;
+  migro = true;
+  if (!S.config.migMenus) {
+    // v0.7: la categoría "Menúes" pasa a llamarse "Menús"
+    for (const c of categorias()) if (normalizar(c) === "menues") vProductos.renombrarCategoria(c, "Menús");
+    db.merge("config", "general", { migMenus: true });
+  }
+}
+
 function iniciarApp() {
   iniciada = true;
   // "cargado" = ya llegó la respuesta del servidor (no solo la copia local)
   const marcar = (k, meta) => { if (!meta?.fromCache) S.cargados.add(k); };
-  escuchar("config", { id: "general", meta: true }, (c, meta) => { S.config = { ...CONFIG_DEF, ...(c || {}) }; marcar("config", meta); emit("config"); });
+  escuchar("config", { id: "general", meta: true }, (c, meta) => { S.config = { ...CONFIG_DEF, ...(c || {}) }; marcar("config", meta); emit("config"); migraciones(); });
   escuchar("mesas", { meta: true }, (a, meta) => {
     S.mesas = a.sort((x, y) => (x.orden ?? 999) - (y.orden ?? 999) || String(x.nombre).localeCompare(String(y.nombre), "es", { numeric: true }));
     marcar("mesas", meta);
@@ -132,6 +146,7 @@ function iniciarApp() {
     S.productos = a.sort((x, y) => (x.orden ?? 0) - (y.orden ?? 0) || String(x.nombre).localeCompare(String(y.nombre), "es"));
     marcar("productos", meta);
     emit("productos");
+    migraciones();
   });
   escuchar("comandas", { where: [["estado", "in", ["abierta", "cuenta"]]] }, (a) => { S.comandas = a; emit("comandas"); });
   escuchar("items", { where: [["cerrado", "==", false]] }, (a) => { S.items = a.sort((x, y) => (x.ts || 0) - (y.ts || 0)); emit("items"); });
@@ -155,7 +170,7 @@ function pantallaLogin() {
   if (MODO === "demo") {
     const us = auth.demoUsuarios();
     pantalla(`
-      <h1>Gestión del bar</h1>
+      <h1>Ingresar</h1>
       <p class="ayuda centro"><b>Modo demo.</b> Los datos quedan solo en este navegador. Elegí con qué usuario entrar. Abrí otra pestaña con otro usuario (por ejemplo, Cocina) para ver el circuito completo.</p>
       <div class="lista-usuarios">${us.map((u) => `<button class="btn btn-bloque usuario-demo" data-uid="${esc(u.id)}"><span class="avatar">${esc(iniciales(u.nombre))}</span><span>${esc(u.nombre)}</span><small>${esc(ROLES[u.rol] || u.rol)}</small></button>`).join("")}</div>
       <button class="btn-texto" id="btnReset">Reiniciar datos del demo</button>`);
@@ -245,9 +260,10 @@ function renderShell() {
   appEl.innerHTML = `
   <div class="shell ${compacto ? "compacto" : ""}" id="shell">
     <aside class="nav-lateral">
-      <div class="marca"><img src="img/logo.svg" alt=""><div><b>${esc(S.config.nombre || "A&F")}</b><small>Gestión</small></div></div>
+      <div class="marca"><img src="img/logo.svg" alt=""><b>${esc(S.config.nombre || "A&F")}</b></div>
       <nav>${lateral}</nav>
       <button class="nav-usuario" data-act="usuario"><span class="avatar">${esc(iniciales(S.perfil?.nombre))}</span><span><b>${esc(S.perfil?.nombre || "")}</b><small>${esc(ROLES[S.rol] || "")}</small></span></button>
+      ${firmaHTML("firma-lateral")}
     </aside>
     <header class="barra-sup">
       <div class="bs-izq"><img src="img/logo.svg" alt="" class="bs-logo"><h1 id="bsTitulo"></h1></div>
@@ -281,7 +297,8 @@ function menuUsuario() {
     titulo: S.perfil?.nombre || "Usuario",
     clase: "modal-chico",
     cuerpo: `<p class="ayuda">${esc(ROLES[S.rol] || "")}${S.user?.email && MODO !== "demo" ? " · " + esc(S.user.email) : ""}</p>
-      <p class="ayuda">${MODO === "demo" ? "Modo demo: los datos quedan en este navegador." : "Conectado a Firebase."} Versión ${VERSION}.</p>`,
+      <p class="ayuda">${MODO === "demo" ? "Modo demo: los datos quedan en este navegador." : "Conectado a Firebase."} Versión ${VERSION}.</p>
+      ${firmaHTML()}`,
     pie: `<button class="btn btn-bloque" data-salir>${icon("salir")} ${MODO === "demo" ? "Cambiar de usuario" : "Cerrar sesión"}</button>`,
   });
   m.el.querySelector("[data-salir]").onclick = () => { m.cerrar(); auth.logout(); };

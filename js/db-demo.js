@@ -179,6 +179,8 @@ function semilla() {
         nombre: "A&F",
         lema: "Comé como en casa",
         pieTicket: "¡Gracias por venir!",
+        direccion: "San Martín 2920",
+        whatsapp: "341 281-5624",
         mozoCobra: false,
         medios: ["efectivo", "mp", "debito", "credito", "transferencia"],
       },

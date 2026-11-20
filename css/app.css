@@ -153,7 +153,7 @@ select.input { appearance: none; background-image: linear-gradient(45deg, transp
 .shell.compacto .bs-links span { display: none; }
 .shell.en-cocina { background: #121212; color: #f1f1f1; }
 .shell.en-cocina .barra-sup { background: #121212; border-color: #2a2a2a; color: #f1f1f1; }
-.shell.en-cocina .bs-logo { filter: invert(1); }
+.shell.en-cocina .bs-logo { background: #fff; border-radius: 8px; padding: 2px 4px; height: 36px; }
 .shell.en-cocina .vista { max-width: none; padding: 10px; }
 
 @media (min-width: 900px) {
@@ -163,10 +163,10 @@ select.input { appearance: none; background-image: linear-gradient(45deg, transp
   .nav-inferior { display: none; }
   .bs-logo { display: none; }
   .chip-caja { display: inline-flex; }
-  .marca { display: flex; align-items: center; gap: 10px; padding: 4px 8px 18px; }
-  .marca img { width: 54px; height: auto; filter: invert(1); }
-  .marca b { display: block; font-size: 18px; }
-  .marca small { color: var(--gris); }
+  /* Logo sobre una tarjeta blanca: sobre el fondo negro no se veía bien */
+  .marca { display: flex; align-items: center; gap: 12px; padding: 10px 14px; margin: 0 0 14px; background: #fff; color: var(--tinta); border-radius: 14px; }
+  .marca img { width: 78px; height: auto; flex-shrink: 0; }
+  .marca b { font-size: 22px; letter-spacing: 0.02em; }
   .nav-lateral nav { display: flex; flex-direction: column; gap: 2px; flex: 1; }
   .nav-lateral nav a { display: flex; align-items: center; gap: 12px; padding: 11px 12px; border-radius: 10px; text-decoration: none; font-weight: 600; color: #cfcfd1; }
   .nav-lateral nav a:hover { background: rgba(255, 255, 255, 0.06); color: #fff; }
@@ -188,7 +188,24 @@ select.input { appearance: none; background-image: linear-gradient(45deg, transp
 .pantalla-centro { min-height: 100dvh; display: flex; align-items: center; justify-content: center; padding: 20px; }
 .tarjeta-login { width: 100%; max-width: 400px; background: var(--sup); border-radius: 20px; padding: 28px 22px; box-shadow: var(--sombra); display: flex; flex-direction: column; gap: 16px; }
 .tarjeta-login h1 { text-align: center; font-size: 22px; }
-.login-logo { width: 170px; height: auto; margin: 0 auto 4px; display: block; }
+.login-logo { width: 190px; height: auto; margin: 0 auto 4px; display: block; }
+
+/* Firma del desarrollador (como en Dairus y Dietética Josué) */
+.firma { display: flex; flex-direction: column; align-items: center; gap: 0; text-align: center; font-size: 12.5px; color: var(--texto3); }
+.firma a { display: inline-flex; align-items: center; gap: 7px; min-height: 40px; padding: 6px 12px; border-radius: 9px; color: var(--texto2); text-decoration: none; font-size: 12.5px; }
+.firma a:hover { background: var(--papel); }
+.firma img { width: 16px; height: 16px; object-fit: contain; flex-shrink: 0; }
+.firma-login { margin-top: 4px; padding-top: 14px; border-top: 1px solid var(--borde); }
+.firma-lateral { display: none; }
+.ajustes-pie { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 18px 0 8px; }
+.ajustes-pie > img { width: 92px; height: auto; }
+.ajustes-pie > small { color: var(--texto3); font-size: 12px; }
+@media (min-width: 900px) {
+  .firma-lateral { display: flex; margin-top: 10px; font-size: 11.5px; color: #8c8d90; }
+  .firma-lateral a { color: #c9c9cc; font-size: 11.5px; min-height: 34px; padding: 4px 10px; }
+  .firma-lateral a:hover { background: rgba(255, 255, 255, 0.08); }
+  .firma-lateral img { width: 14px; height: 14px; }
+}
 .lista-usuarios { display: flex; flex-direction: column; gap: 8px; }
 .usuario-demo { justify-content: flex-start; gap: 12px; min-height: 56px; }
 .usuario-demo small { margin-left: auto; color: var(--texto3); font-weight: 500; }
@@ -743,3 +760,10 @@ body:has(.escaner) .toasts { bottom: auto; top: calc(64px + env(safe-area-inset-
 }
 
 body.offline .barra-sup { box-shadow: inset 0 -3px 0 var(--rojo); }
+.campo > span img { vertical-align: -3px; margin-right: 3px; }
+
+/* Categorías */
+.gc-fila > div:first-child { flex: 1; min-width: 0; }
+.fila-lista > .gc-acc { flex: 0 0 auto; display: flex; gap: 2px; }
+.gc-acc .btn-icono:disabled { opacity: 0.25; }
+#eCatNueva { margin-top: 6px; }

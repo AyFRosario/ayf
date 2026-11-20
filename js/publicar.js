@@ -45,6 +45,8 @@ export function construirCarta() {
     direccion: c.direccion || "",
     horario: c.horario || "",
     instagram: c.instagram || "",
+    facebook: c.facebook || "",
+    mapa: c.mapa || "",
     whatsapp: c.whatsapp || "",
     wa: waLink(c.whatsapp).replace("https://wa.me/", ""),
     reservas: c.reservasCarta !== false,

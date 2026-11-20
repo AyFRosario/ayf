@@ -3,10 +3,11 @@
 // ============================================================
 import { S, categorias, productoPorCodigo, SECTORES, log, insumosBajos } from "../store.js";
 import { db, inc } from "../db.js";
-import { esc, fmt, num, icon, modal, toast, confirmar } from "../util.js";
+import { esc, fmt, num, icon, modal, toast, confirmar, pedirTexto } from "../util.js";
 import { buscar } from "../buscar.js";
 import { abrirEscaner, escucharLectorUSB, precargarEscaner } from "../scanner.js";
-import { menuExcel, abrirImportador, descargarPlantilla, precargarExcel } from "../importar.js";
+import { menuExcel, abrirImportador, descargarPlantilla, precargarExcel, ajustarCategoria } from "../importar.js";
+import { normalizar } from "../util.js";
 import { montarInsumos, editorReceta } from "./insumos.js";
 
 export function mount(root, { param } = {}) {
@@ -23,6 +24,7 @@ export function mount(root, { param } = {}) {
         <div class="prod-botones">
           <button class="btn" data-act="escanear">${icon("scan")} Escanear</button>
           <button class="btn" data-act="tanda">${icon("dinero")} Precios en tanda</button>
+          <button class="btn" data-act="categorias">${icon("lista")} Categorías</button>
           <button class="btn" data-act="excel">${icon("tabla")} Excel</button>
           <button class="btn btn-pri" data-act="nuevo">${icon("mas")} Producto</button>
         </div>
@@ -68,14 +70,21 @@ export function mount(root, { param } = {}) {
   function editar(p = null, codigoInicial = "", stockInicial = 0) {
     const cats = categorias();
     const nuevo = !p;
-    p = p || { nombre: "", categoria: cats[0] || "", precio: "", sector: codigoInicial ? "ninguno" : "cocina", codigo: codigoInicial, controlStock: !!codigoInicial, stock: stockInicial, stockMin: 0, activo: true, enCarta: true, descripcion: "" };
+    p = p || { nombre: "", categoria: cats.includes(filtro) ? filtro : "", precio: "", sector: codigoInicial ? "ninguno" : "cocina", codigo: codigoInicial, controlStock: !!codigoInicial, stock: stockInicial, stockMin: 0, activo: true, enCarta: true, descripcion: "" };
     const receta = editorReceta(p.receta || [], Number(p.precio) || 0);
     const m = modal({
       titulo: nuevo ? "Nuevo producto" : "Editar producto",
       cuerpo: `<form class="form" id="fProd">
         <label class="campo"><span>Nombre</span><input class="input" id="eNom" value="${esc(p.nombre)}" required ${nuevo && !codigoInicial ? "autofocus" : ""}></label>
         <div class="dos-col">
-          <label class="campo"><span>Categoría</span><input class="input" id="eCat" list="eCats" value="${esc(p.categoria || "")}"><datalist id="eCats">${cats.map((c) => `<option value="${esc(c)}">`).join("")}</datalist></label>
+          <div class="campo"><span>Categoría</span>
+            <select class="input" id="eCat">
+              ${p.categoria ? "" : `<option value="" selected disabled>Elegí una categoría…</option>`}
+              ${cats.map((c) => `<option value="${esc(c)}" ${c === (p.categoria || "") ? "selected" : ""}>${esc(c)}</option>`).join("")}
+              <option value="__nueva">＋ Nueva categoría…</option>
+            </select>
+            <input class="input" id="eCatNueva" placeholder="Nombre de la categoría nueva" maxlength="40" hidden>
+          </div>
           <label class="campo"><span>Precio</span><input class="input" id="ePre" inputmode="decimal" value="${p.precio === "" ? "" : Math.round(p.precio)}" required ${codigoInicial ? "autofocus" : ""}></label>
         </div>
         <label class="campo"><span>Descripción para la carta QR (opcional)</span><textarea class="input" id="eDesc" rows="2" maxlength="160" placeholder="Ej: con salsa pomodoro y albahaca">${esc(p.descripcion || "")}</textarea></label>
@@ -108,6 +117,10 @@ export function mount(root, { param } = {}) {
       m.el.querySelectorAll("[data-sec]").forEach((x) => x.classList.toggle("activo", x === b));
     };
     $("#eCtl").onchange = () => { $("#eStockWrap").hidden = !$("#eCtl").checked; };
+    const catSel = $("#eCat"), catNueva = $("#eCatNueva");
+    const verNueva = () => { catNueva.hidden = catSel.value !== "__nueva"; if (!catNueva.hidden) catNueva.focus(); };
+    catSel.addEventListener("change", verNueva);
+    if (!cats.length) { catSel.value = "__nueva"; catNueva.hidden = false; }
     m.el.querySelector('[data-act="scanCod"]').onclick = async () => {
       const c = await abrirEscaner({ titulo: "Código del producto" });
       if (c) $("#eCod").value = c;
@@ -124,9 +137,11 @@ export function mount(root, { param } = {}) {
       const codigo = $("#eCod").value.trim();
       const otro = codigo && productoPorCodigo(codigo);
       if (otro && otro.id !== p.id) return toast(`Ese código ya es de "${otro.nombre}"`, "error");
+      const categoria = catSel.value === "__nueva" ? ajustarCategoria(catNueva.value) : catSel.value;
+      if (!categoria) { toast(catSel.value === "__nueva" ? "Escribí el nombre de la categoría nueva" : "Elegí una categoría", "error"); (catSel.value === "__nueva" ? catNueva : catSel).focus(); return; }
       const datos = {
         nombre: $("#eNom").value.trim(),
-        categoria: $("#eCat").value.trim() || "Otros",
+        categoria,
         precio: Math.round(num($("#ePre").value)),
         sector, codigo,
         controlStock: $("#eCtl").checked,
@@ -388,6 +403,7 @@ export function mount(root, { param } = {}) {
     else if (a.dataset.act === "ingreso") ingreso();
     else if (a.dataset.act === "asignar") asignarCodigos();
     else if (a.dataset.act === "tanda") tanda();
+    else if (a.dataset.act === "categorias") gestionarCategorias();
     else if (a.dataset.act === "excel") menuExcel();
     else if (a.dataset.act === "importar") abrirImportador();
     else if (a.dataset.act === "plantilla") descargarPlantilla();
@@ -435,4 +451,72 @@ export function mount(root, { param } = {}) {
 function fmtCant(n) {
   const v = Number(n) || 0;
   return Number.isInteger(v) ? String(v) : v.toLocaleString("es-AR", { maximumFractionDigits: 2 });
+}
+
+// ── Categorías: renombrar y ordenar ──
+// La categoría es un texto en cada producto: renombrar cambia todos los
+// productos de esa categoría. El orden de la carta sale del orden de los
+// productos, así que mover una categoría reordena sus productos en bloque.
+function reordenarOps(nuevoOrden) {
+  const ops = [];
+  let n = 0;
+  for (const cat of nuevoOrden) {
+    const ps = S.productos.filter((p) => (p.categoria || "Otros") === cat).sort((a, b) => (Number(a.orden) || 0) - (Number(b.orden) || 0));
+    for (const p of ps) { n++; if (Number(p.orden) !== n) ops.push({ op: "update", col: "productos", id: p.id, data: { orden: n } }); }
+  }
+  return ops;
+}
+
+export function gestionarCategorias() {
+  const m = modal({
+    titulo: "Categorías",
+    cuerpo: `<p class="ayuda">El orden es el de la carta QR y el de la comanda de los mozos. Renombrar cambia todos los productos de la categoría.</p><div class="lista" id="gcL"></div>`,
+  });
+  const cont = m.el.querySelector("#gcL");
+  const pintar = () => {
+    const cats = categorias();
+    cont.innerHTML = cats.map((c, k) => {
+      const n = S.productos.filter((p) => (p.categoria || "Otros") === c).length;
+      return `<div class="fila-lista gc-fila"><div><b>${esc(c)}</b><small>${n} producto${n === 1 ? "" : "s"}</small></div>
+        <div class="gc-acc">
+          <button class="btn-icono" data-sube="${k}" ${k === 0 ? "disabled" : ""} aria-label="Subir">${icon("arriba")}</button>
+          <button class="btn-icono" data-baja="${k}" ${k === cats.length - 1 ? "disabled" : ""} aria-label="Bajar">${icon("abajo")}</button>
+          <button class="btn-icono" data-ren="${k}" aria-label="Renombrar">${icon("nota")}</button>
+        </div></div>`;
+    }).join("") || `<p class="ayuda">Todavía no hay productos.</p>`;
+  };
+  cont.addEventListener("click", async (e) => {
+    const cats = categorias();
+    const sube = e.target.closest("[data-sube]"), baja = e.target.closest("[data-baja]"), ren = e.target.closest("[data-ren]");
+    if (sube || baja) {
+      const k = Number((sube || baja).dataset[sube ? "sube" : "baja"]);
+      const j = sube ? k - 1 : k + 1;
+      if (j < 0 || j >= cats.length) return;
+      [cats[k], cats[j]] = [cats[j], cats[k]];
+      const ops = reordenarOps(cats);
+      if (ops.length) db.batch(ops);
+      setTimeout(pintar, 40);
+      return;
+    }
+    if (ren) {
+      const viejo = cats[Number(ren.dataset.ren)];
+      const nuevoTxt = await pedirTexto(`Renombrar "${viejo}"`, { valor: viejo, ok: "Renombrar" });
+      if (nuevoTxt == null) return;
+      const limpio = nuevoTxt.trim();
+      if (!limpio || limpio === viejo) return;
+      const existente = cats.find((c) => c !== viejo && normalizar(c) === normalizar(limpio));
+      if (existente && !(await confirmar(`Ya existe "${existente}". ¿Juntar los productos de "${viejo}" en "${existente}"?`, { ok: "Juntar" }))) return;
+      renombrarCategoria(viejo, existente || limpio);
+      toast(`"${viejo}" ahora es "${existente || limpio}"`);
+      setTimeout(pintar, 40);
+    }
+  });
+  pintar();
+}
+
+export function renombrarCategoria(viejo, nuevo) {
+  const ops = S.productos.filter((p) => (p.categoria || "Otros") === viejo).map((p) => ({ op: "update", col: "productos", id: p.id, data: { categoria: nuevo } }));
+  for (let i = 0; i < ops.length; i += 400) db.batch(ops.slice(i, i + 400));
+  if (ops.length) log("productos", `Categoría "${viejo}" → "${nuevo}" (${ops.length} productos)`);
+  return ops.length;
 }
