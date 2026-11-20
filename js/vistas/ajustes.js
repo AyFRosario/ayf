@@ -10,7 +10,7 @@ import { qrcode } from "../vendor/qrcode.mjs";
 import { descargarRespaldo, diasSinRespaldo } from "../respaldo.js";
 import { firmaHTML, iconoContacto, usuarioRed } from "../firma.js";
 
-const VERSION_APP = "0.7.0";
+const VERSION_APP = "0.7.1";
 
 const MODOS = {
   ninguna: { t: "Sin impresora", d: "Este dispositivo no imprime." },
@@ -136,7 +136,7 @@ export function mount(root) {
       <div class="campo" style="margin-top:12px"><span>Dirección de la carta</span>
         <div class="input-boton"><input class="input" readonly value="${esc(url)}"><button class="btn" data-act="copiarCarta">Copiar</button></div></div>
       <div class="fila-botones" style="margin-top:12px">
-        <a class="btn" href="${esc(url)}" target="_blank" rel="noopener">${icon("externo")} Ver la carta</a>
+        <a class="btn" href="${esc(url)}">${icon("externo")} Ver la carta</a>
         <button class="btn btn-pri" data-act="qrMesas">${icon("print")} QR de las mesas</button>
         <button class="btn" data-act="qrGeneral">${icon("bajar")} QR general (imagen)</button>
       </div>

@@ -201,7 +201,19 @@ function observarCategorias() {
 
 const RELOJ = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 6.8V12l3.4 2"/></svg>';
 
+// Botón para volver a la app: solo si en este navegador hay sesión iniciada
+function botonVolver() {
+  let sesion = null;
+  try { sesion = JSON.parse(localStorage.getItem("af_sesion") || "null"); } catch {}
+  const b = document.getElementById("alApp");
+  if (!b || !sesion) return;
+  b.href = "./" + (DEMO && params.has("demo") ? "?demo" : "");
+  b.hidden = false;
+  document.body.classList.add("con-volver");
+}
+
 async function iniciar() {
+  botonVolver();
   let guardada = null;
   try { guardada = JSON.parse(localStorage.getItem(CACHE) || "null"); } catch {}
   if (guardada?.carta) { carta = guardada.carta; render(); }

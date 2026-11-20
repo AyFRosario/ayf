@@ -9,7 +9,7 @@ import { $, esc, icon, toast, modal, confirmar, iniciales, fmt, normalizar } fro
 import { reconectarImpresora } from "./print.js";
 import { iniciarPublicacion, detenerPublicacion } from "./publicar.js";
 
-const VERSION = "0.7.0";
+const VERSION = "0.7.1";
 import * as vSalon from "./vistas/salon.js";
 import * as vMesa from "./vistas/mesa.js";
 import * as vCocina from "./vistas/cocina.js";
@@ -93,7 +93,7 @@ function alCambiarUsuario(u) {
   S.user = u;
   S.perfil = null;
   S.rol = null;
-  if (!u) return pantallaLogin();
+  if (!u) { marcarSesion(false); return pantallaLogin(); }
   cargando("Verificando usuario…");
   let resuelto = false;
   const espera = setTimeout(() => {
@@ -132,8 +132,18 @@ function migraciones() {
   }
 }
 
+// La carta QR muestra el botón "Volver a A&F" solo si en este navegador
+// hay alguien con sesión iniciada. Un cliente que escanea el QR no lo ve.
+function marcarSesion(si) {
+  try {
+    if (si) localStorage.setItem("af_sesion", JSON.stringify({ rol: S.rol, ts: Date.now() }));
+    else localStorage.removeItem("af_sesion");
+  } catch {}
+}
+
 function iniciarApp() {
   iniciada = true;
+  marcarSesion(true);
   // "cargado" = ya llegó la respuesta del servidor (no solo la copia local)
   const marcar = (k, meta) => { if (!meta?.fromCache) S.cargados.add(k); };
   escuchar("config", { id: "general", meta: true }, (c, meta) => { S.config = { ...CONFIG_DEF, ...(c || {}) }; marcar("config", meta); emit("config"); migraciones(); });

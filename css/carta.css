@@ -67,3 +67,10 @@ body { margin: 0; background: var(--papel); color: var(--tinta); font: 16px/1.45
 .btn-wa { background: var(--tinta); color: #fff; border: 1px solid var(--tinta); }
 .btn-sec { background: transparent; border: 1px solid var(--linea); color: var(--tinta); }
 .hoja .nota { text-align: center; margin: 0 !important; }
+
+/* Volver a la app: solo con sesión iniciada en este navegador (como en Dairus) */
+.al-app { position: fixed; right: 14px; bottom: calc(14px + env(safe-area-inset-bottom)); z-index: 10; display: inline-flex; align-items: center; gap: 6px; padding: 11px 18px 11px 12px; border-radius: 999px; background: var(--tinta); color: #fff; text-decoration: none; font-size: 14px; font-weight: 700; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25); -webkit-tap-highlight-color: transparent; }
+.al-app[hidden] { display: none; }
+.al-app svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.al-app:hover { background: #000; }
+body.con-volver .carta { padding-bottom: calc(84px + env(safe-area-inset-bottom)); }
