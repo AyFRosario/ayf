@@ -9,6 +9,10 @@ export const CONFIG_DEF = {
   pieTicket: "¡Gracias por venir!",
   mozoCobra: false,
   medios: ["efectivo", "mp", "debito", "credito", "transferencia"],
+  direccion: "",
+  horario: "",
+  instagram: "",
+  whatsapp: "",
 };
 
 export const S = {
@@ -22,6 +26,7 @@ export const S = {
   items: [],       // ítems de comandas sin cobrar (cerrado == false)
   jornada: null,   // caja abierta
   usuarios: [],
+  cargados: new Set(), // colecciones que ya respondió el servidor
 };
 
 const subs = new Set();

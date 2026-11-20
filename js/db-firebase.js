@@ -64,6 +64,7 @@ export function listen(col, opts, cb) {
   if (opts.limit) cons.push(F.limit(opts.limit));
   return F.onSnapshot(
     F.query(colRef(col), ...cons),
+    { includeMetadataChanges: !!opts.meta },
     (s) => cb(s.docs.map((d) => ({ id: d.id, ...d.data() })), { fromCache: s.metadata.fromCache }),
     onE
   );

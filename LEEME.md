@@ -1,4 +1,4 @@
-# A&F · Gestión del bar — versión 0.2
+# A&F · Gestión del bar — versión 0.3
 
 PWA para celular, tablet y PC. HTML, CSS y JS sin compilar, igual que el resto de JPSoft. Se publica en GitHub Pages y usa Firebase (Firestore + Auth) con caché sin conexión.
 
@@ -74,6 +74,20 @@ Cada dispositivo elige su impresora en **Ajustes → Este dispositivo**.
 
 El lector de Excel (SheetJS) se descarga la primera vez que se usa.
 
+## 3 ter. Carta QR para los clientes
+
+- **Dónde está:** **Ajustes → Carta QR**. Ahí está la dirección de la carta (`carta.html`) y los botones para verla, imprimir los **QR de las mesas** y bajar un **QR general** en PNG para la entrada o Instagram.
+- **QR de las mesas:** se imprimen 12 por hoja A4. Cada uno abre la carta con el nombre de la mesa. Usa el id interno de la mesa, así que sigue funcionando aunque la renombres.
+- **Actualización:** la carta se publica sola. Cuando un encargado o el dueño tiene la app abierta y cambia productos, precios, stock o mesas, se vuelve a publicar en unos segundos.
+- **Qué ven los clientes:**
+  - los productos activos con "Mostrar en la carta QR" marcado;
+  - los que se quedaron sin stock, como "Agotado";
+  - la descripción de cada producto (se carga en el producto o en la columna "Descripción" del Excel);
+  - al pie, dirección, horario, Instagram y WhatsApp (se cargan en Ajustes → Negocio).
+- **Por qué no expone datos:** la página no inicia sesión. Lee un único documento (`negocios/af/publico/carta`) por la API de Firestore, así que cada visita gasta una sola lectura y no puede ver stock ni ventas.
+- **Sin señal:** el teléfono del cliente guarda la última carta que vio y la muestra si se queda sin conexión.
+- **Requisito:** **hay que volver a publicar `firestore.rules`**, que ahora incluye la regla `publico`.
+
 ## 4. Escáner de códigos
 
 - **Android (Chrome):** usa el lector que trae el navegador. Es rápido y funciona sin conexión.
@@ -98,7 +112,7 @@ Lo único que necesita conexión es **entrar por primera vez** en cada dispositi
 ## 6. Archivos
 
 ```
-index.html  manifest.json  sw.js  firestore.rules
+index.html  carta.html  manifest.json  sw.js  firestore.rules
 css/app.css
 js/config.js       ← configuración (Firebase, ARCA)
 js/app.js          ← arranque, sesión, menú, navegación
@@ -106,10 +120,14 @@ js/db.js           ← capa de datos (demo o Firebase)
 js/db-demo.js  js/db-firebase.js
 js/store.js        ← estado, roles, datos del dispositivo
 js/util.js  js/buscar.js  js/scanner.js  js/print.js
+js/importar.js     ← carta desde/hacia Excel
+js/publicar.js     ← mantiene publicada la carta QR
+js/carta.js        ← página pública de la carta
+js/vendor/qrcode.mjs ← generador de QR (Kazuhiko Arase, licencia MIT)
 js/vistas/         ← salon, mesa, cobro, cocina, caja, productos, usuarios, ajustes
 ```
 
-**Colecciones** (dentro de `negocios/{id}/`): `config`, `usuarios`, `mesas`, `productos`, `comandas`, `items`, `ventas`, `jornadas`, `movCaja`, `logs`.
+**Colecciones** (dentro de `negocios/{id}/`): `config`, `usuarios`, `mesas`, `productos`, `comandas`, `items`, `ventas`, `jornadas`, `movCaja`, `logs`, `publico`.
 
 ## 7. De dónde salió cada cosa
 
@@ -132,7 +150,8 @@ Problemas de los proyectos anteriores que esta versión no hereda:
 
 ## 8. Lo que sigue (fase 2)
 
-- Carta QR por mesa (`?mesa=5`) y reservas (de Dairus)
+- Reservas (de Dairus) y "Llamar al mozo" desde la carta QR
+- Fotos de los productos en la carta QR
 - Stock por receta / insumos en gramos (base: los combos de Tienda)
 - Compras y proveedores, clientes con cuenta corriente
 - Reportes por período, productos más vendidos, rendimiento por mozo

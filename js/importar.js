@@ -21,15 +21,17 @@ export const precargarExcel = () => cargarXLSX().catch(() => {});
 
 // ── Columnas reconocidas (encabezado → campo) ──
 const COLUMNAS = [
-  { clave: "nombre", titulo: "Nombre", ancho: 34, alias: ["nombre", "producto", "productos", "descripcion", "item", "articulo", "plato", "detalle"] },
+  { clave: "nombre", titulo: "Nombre", ancho: 34, alias: ["nombre", "producto", "productos", "item", "articulo", "plato"] },
   { clave: "categoria", titulo: "Categoría", ancho: 16, alias: ["categoria", "rubro", "seccion", "grupo", "tipo", "familia"] },
   { clave: "precio", titulo: "Precio", ancho: 10, alias: ["precio", "precios", "precio venta", "precio de venta", "pvp", "importe", "valor", "precio final"] },
+  { clave: "descripcion", titulo: "Descripción (carta QR)", ancho: 40, alias: ["descripcion", "detalle", "ingredientes", "descripcion carta qr", "aclaracion"] },
   { clave: "sector", titulo: "Prepara (Cocina/Barra/Mozo)", ancho: 26, alias: ["prepara", "sector", "quien prepara", "destino", "area"] },
   { clave: "codigo", titulo: "Código de barras", ancho: 18, alias: ["codigo de barras", "codigo", "cod", "ean", "barcode", "cod barras"] },
   { clave: "controlStock", titulo: "Controla stock (Sí/No)", ancho: 20, alias: ["controla stock", "control stock", "control de stock"] },
   { clave: "stock", titulo: "Stock", ancho: 8, alias: ["stock", "existencia", "stock actual"] },
   { clave: "stockMin", titulo: "Stock mínimo", ancho: 13, alias: ["stock minimo", "minimo", "stock min", "avisar con menos de"] },
-  { clave: "activo", titulo: "Activo (Sí/No)", ancho: 14, alias: ["activo", "disponible", "visible", "habilitado"] },
+  { clave: "activo", titulo: "Activo (Sí/No)", ancho: 14, alias: ["activo", "disponible", "habilitado"] },
+  { clave: "enCarta", titulo: "En la carta QR (Sí/No)", ancho: 20, alias: ["en la carta qr", "en carta", "carta qr", "mostrar en carta", "visible", "publicar"] },
 ];
 const NOMBRE_SECTOR = { cocina: "Cocina", barra: "Barra", ninguno: "Mozo" };
 
@@ -98,6 +100,7 @@ function mapearEncabezado(fila) {
 function detectar(aoa) {
   for (let r = 0; r < Math.min(15, aoa.length); r++) {
     const map = mapearEncabezado(aoa[r]);
+    if (map.nombre === undefined && map.descripcion !== undefined) { map.nombre = map.descripcion; delete map.descripcion; }
     if (map.nombre !== undefined && map.precio !== undefined) return { map, desde: r + 1, conEncabezado: true };
   }
   // Sin encabezado: la columna con más textos es el nombre, la con más números el precio
@@ -120,7 +123,7 @@ function detectar(aoa) {
 function leerFilas(aoa, det) {
   const { map, desde } = det;
   const val = (fila, k) => (map[k] === undefined ? undefined : fila[map[k]]);
-  const extras = ["categoria", "sector", "codigo", "controlStock", "stock", "stockMin", "activo"];
+  const extras = ["categoria", "descripcion", "sector", "codigo", "controlStock", "stock", "stockMin", "activo", "enCarta"];
   const out = [];
   let catActual = "";
   for (let r = desde; r < aoa.length; r++) {
@@ -148,6 +151,8 @@ function leerFilas(aoa, det) {
       stock: vacio(stockV) ? undefined : num(stockV),
       stockMin: vacio(minV) ? undefined : num(minV),
       activo: siNo(val(fila, "activo")),
+      enCarta: siNo(val(fila, "enCarta")),
+      descripcion: map.descripcion === undefined ? undefined : txt(val(fila, "descripcion")),
     });
   }
   return out;
@@ -177,6 +182,8 @@ function planificar(filas) {
     if (f.stock !== undefined && f.stock !== (Number(prev.stock) || 0)) c.stock = f.stock;
     if (f.stockMin !== undefined && f.stockMin !== (Number(prev.stockMin) || 0)) c.stockMin = f.stockMin;
     if (f.activo !== undefined && f.activo !== (prev.activo !== false)) c.activo = f.activo;
+    if (f.enCarta !== undefined && f.enCarta !== (prev.enCarta !== false)) c.enCarta = f.enCarta;
+    if (f.descripcion !== undefined && f.descripcion !== (prev.descripcion || "")) c.descripcion = f.descripcion;
     plan.push({ ...f, tipo: Object.keys(c).length ? "cambia" : "igual", prev, cambios: c });
   }
   return plan;
@@ -284,7 +291,7 @@ function vistaPrevia(XLSX, wb, nombreArchivo) {
     let precio = p.precio ? fmt(p.precio) : "";
     if (p.tipo === "cambia" && p.cambios.precio !== undefined) precio = `<s>${fmt(p.prev.precio)}</s> ${fmt(p.precio)}`;
     const otros = p.tipo === "cambia"
-      ? Object.keys(p.cambios).filter((k) => k !== "precio").map((k) => ({ nombre: "nombre", categoria: "categoría", sector: "prepara", codigo: "código", controlStock: "control de stock", stock: "stock", stockMin: "mínimo", activo: "activo" }[k])).join(", ")
+      ? Object.keys(p.cambios).filter((k) => k !== "precio").map((k) => ({ nombre: "nombre", categoria: "categoría", sector: "prepara", codigo: "código", controlStock: "control de stock", stock: "stock", stockMin: "mínimo", activo: "activo", enCarta: "carta QR", descripcion: "descripción" }[k])).join(", ")
       : "";
     return `<div class="imp-fila ${p.tipo}">
       <span class="imp-n">${p.fila}</span>
@@ -331,6 +338,7 @@ function vistaPrevia(XLSX, wb, nombreArchivo) {
         nombre: p.nombre, categoria: p.categoria || "Otros", precio: p.precio, sector: p.sector, codigo: p.codigo || "",
         controlStock: p.controlStock ?? p.stock !== undefined,
         stock: p.stock ?? 0, stockMin: p.stockMin ?? 0, activo: p.activo ?? true,
+        enCarta: p.enCarta ?? true, descripcion: p.descripcion || "",
         orden: usarOrden ? ordenNuevo.get(p) : ++ordenMax,
       } });
     }
@@ -367,10 +375,10 @@ function exportarCarta(XLSX, nombre) {
   const filas = [...S.productos]
     .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
     .map((p) => [
-      p.nombre, p.categoria || "Otros", Math.round(Number(p.precio) || 0), NOMBRE_SECTOR[p.sector || "cocina"],
+      p.nombre, p.categoria || "Otros", Math.round(Number(p.precio) || 0), p.descripcion || "", NOMBRE_SECTOR[p.sector || "cocina"],
       p.codigo || "", p.controlStock ? "Sí" : "No",
       p.controlStock ? Number(p.stock) || 0 : "", p.controlStock ? Number(p.stockMin) || 0 : "",
-      p.activo === false ? "No" : "Sí",
+      p.activo === false ? "No" : "Sí", p.enCarta === false ? "No" : "Sí",
     ]);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, hojaCarta(XLSX, filas), "Carta");
@@ -387,10 +395,10 @@ export async function descargarPlantilla() {
   let XLSX;
   try { XLSX = await cargarXLSX(); } catch { return toast("No se pudo generar el Excel. Revisá la conexión.", "error"); }
   const ejemplos = [
-    ["Milanesa napolitana con papas", "Minutas", 15500, "Cocina", "", "No", "", "", "Sí"],
-    ["Sorrentinos de jamón y queso", "Pastas", 13500, "Cocina", "", "No", "", "", "Sí"],
-    ["Pinta rubia", "Cervezas", 5500, "Barra", "", "No", "", "", "Sí"],
-    ["Gaseosa 500 ml", "Sin alcohol", 2800, "Mozo", "", "Sí", 24, 6, "Sí"],
+    ["Milanesa napolitana con papas", "Minutas", 15500, "Con jamón, salsa y muzzarella", "Cocina", "", "No", "", "", "Sí", "Sí"],
+    ["Sorrentinos de jamón y queso", "Pastas", 13500, "Con salsa a elección", "Cocina", "", "No", "", "", "Sí", "Sí"],
+    ["Pinta rubia", "Cervezas", 5500, "", "Barra", "", "No", "", "", "Sí", "Sí"],
+    ["Gaseosa 500 ml", "Sin alcohol", 2800, "", "Mozo", "", "Sí", 24, 6, "Sí", "Sí"],
   ];
   const instrucciones = [
     ["Cómo completar la carta de A&F"],
@@ -400,7 +408,9 @@ export async function descargarPlantilla() {
     ["• Prepara: Cocina, Barra o Mozo (latas, botellas o agua que no pasan por cocina ni barra). Si queda vacío, el sistema lo deduce."],
     ["• Código de barras: solo para productos envasados. Conviene darle formato de Texto a esa columna para que Excel no lo redondee."],
     ["• Controla stock: Sí o No. Stock y Stock mínimo son cantidades; si se completan, reemplazan el stock cargado."],
-    ["• Activo: Sí o No. Los productos inactivos no aparecen en la carta de los mozos."],
+    ["• Descripción: un texto corto que ven los clientes en la carta QR (ingredientes, acompañamiento). Opcional."],
+    ["• Activo: Sí o No. Los productos inactivos no aparecen en la carta de los mozos ni en la carta QR."],
+    ["• En la carta QR: Sí o No. Con No, el producto se puede vender pero los clientes no lo ven en la carta."],
     ["• Los precios pueden escribirse como 15500, 15.500 o $ 15.500."],
     [""],
     ["También se puede importar una carta sin encabezados: una fila con el nombre de la categoría y debajo los productos con su precio."],

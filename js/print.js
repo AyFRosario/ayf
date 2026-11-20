@@ -135,6 +135,22 @@ function imprimirSistema(lineas, ancho) {
   return true;
 }
 
+// Hoja A4 (códigos QR de las mesas) por el diálogo de impresión
+export function imprimirHoja(htmlHoja) {
+  const zona = document.getElementById("zonaImpresion");
+  let estilo = document.getElementById("estiloImpresion");
+  if (!estilo) {
+    estilo = document.createElement("style");
+    estilo.id = "estiloImpresion";
+    document.head.appendChild(estilo);
+  }
+  estilo.textContent = "@media print { @page { size: A4 portrait; margin: 10mm; } #zonaImpresion { width: auto; } }";
+  zona.innerHTML = htmlHoja;
+  const limpiar = () => { zona.innerHTML = ""; window.removeEventListener("afterprint", limpiar); };
+  window.addEventListener("afterprint", limpiar);
+  setTimeout(() => window.print(), 80);
+}
+
 // ── ESC/POS ──
 const CP850 = { "á": 0xa0, "é": 0x82, "í": 0xa1, "ó": 0xa2, "ú": 0xa3, "ñ": 0xa4, "Ñ": 0xa5, "Á": 0xb5, "É": 0x90, "Í": 0xd6, "Ó": 0xe0, "Ú": 0xe9, "ü": 0x81, "Ü": 0x9a, "¿": 0xa8, "¡": 0xad, "°": 0xf8, "º": 0xa7, "ª": 0xa6, "·": 0xfa, "×": 0x9e };
 function bytesTexto(s, sinAcentos) {

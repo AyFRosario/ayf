@@ -3,8 +3,10 @@
 // ============================================================
 import { S, puede, MEDIOS, dispositivo, guardarDispositivo, sectoresMesas, comandaDeMesa, log } from "../store.js";
 import { db, auth, MODO } from "../db.js";
-import { esc, icon, modal, toast, confirmar, pedirTexto } from "../util.js";
-import { imprimir, ticketPrueba, conectarBluetooth, conectarUSB, btConectada, usbConectada } from "../print.js";
+import { esc, icon, modal, toast, confirmar, pedirTexto, fechaHora } from "../util.js";
+import { imprimir, imprimirHoja, ticketPrueba, conectarBluetooth, conectarUSB, btConectada, usbConectada } from "../print.js";
+import { urlCarta } from "../publicar.js";
+import { qrcode } from "../vendor/qrcode.mjs";
 
 const MODOS = {
   ninguna: { t: "Sin impresora", d: "Este dispositivo no imprime." },
@@ -19,7 +21,7 @@ export function mount(root) {
   root.innerHTML = `
     <div class="ajustes">
       <section class="tarjeta" id="aDisp"></section>
-      ${negocio ? `<section class="tarjeta" id="aNeg"></section><section class="tarjeta" id="aMesas"></section>` : ""}
+      ${negocio ? `<section class="tarjeta" id="aCarta"></section><section class="tarjeta" id="aNeg"></section><section class="tarjeta" id="aMesas"></section>` : ""}
       ${MODO === "demo" ? `<section class="tarjeta"><h3>Modo demo</h3><p class="ayuda">Los datos están solo en este navegador.</p><button class="btn btn-peligro" data-act="reset">Reiniciar datos del demo</button></section>` : ""}
     </div>`;
 
@@ -60,6 +62,15 @@ export function mount(root) {
         <label class="campo"><span>Nombre</span><input class="input" id="nNom" value="${esc(c.nombre)}"></label>
         <label class="campo"><span>Lema (sale en los tickets)</span><input class="input" id="nLema" value="${esc(c.lema || "")}"></label>
         <label class="campo"><span>Pie del ticket</span><input class="input" id="nPie" value="${esc(c.pieTicket || "")}"></label>
+        <div class="dos-col">
+          <label class="campo"><span>Dirección</span><input class="input" id="nDir" value="${esc(c.direccion || "")}" placeholder="Calle 1234, Rosario"></label>
+          <label class="campo"><span>Horario</span><input class="input" id="nHor" value="${esc(c.horario || "")}" placeholder="Mar a dom de 19 a 1"></label>
+        </div>
+        <div class="dos-col">
+          <label class="campo"><span>Instagram</span><input class="input" id="nIg" value="${esc(c.instagram || "")}" placeholder="@ayf.rosario"></label>
+          <label class="campo"><span>WhatsApp</span><input class="input" id="nWa" inputmode="tel" value="${esc(c.whatsapp || "")}" placeholder="341 555-1234"></label>
+        </div>
+        <p class="ayuda">Dirección, horario y redes aparecen al pie de la carta QR.</p>
         <label class="switch"><input type="checkbox" id="nMozo" ${c.mozoCobra ? "checked" : ""}><span>Los mozos pueden cobrar</span></label>
         <div class="campo"><span>Medios de pago</span><div class="checks">${Object.entries(MEDIOS).map(([k, v]) => `<label class="check"><input type="checkbox" data-medio="${k}" ${(c.medios || []).includes(k) ? "checked" : ""}> ${v}</label>`).join("")}</div></div>
         <button class="btn btn-pri">Guardar</button>
@@ -74,10 +85,75 @@ export function mount(root) {
         pieTicket: el.querySelector("#nPie").value.trim(),
         mozoCobra: el.querySelector("#nMozo").checked,
         medios,
+        direccion: el.querySelector("#nDir").value.trim(),
+        horario: el.querySelector("#nHor").value.trim(),
+        instagram: el.querySelector("#nIg").value.trim().replace(/^@/, ""),
+        whatsapp: el.querySelector("#nWa").value.trim(),
       });
       log("ajustes", "Datos del negocio actualizados");
       toast("Guardado");
     };
+  }
+
+  // ── Carta QR ──
+  let publicada = null;
+  const soltarCarta = negocio ? db.listen("publico", { id: "carta" }, (d) => { publicada = d; renderCarta(); }) : null;
+  function renderCarta() {
+    const el = root.querySelector("#aCarta");
+    if (!el) return;
+    let n = 0;
+    try { n = publicada ? JSON.parse(publicada.json).cats.reduce((s, c) => s + c.p.length, 0) : 0; } catch {}
+    const url = urlCarta();
+    el.innerHTML = `
+      <h3>Carta QR</h3>
+      <p class="ayuda">Los clientes escanean el código de la mesa y ven la carta con los precios siempre al día. Se actualiza sola cuando cambiás productos, precios o stock (los agotados aparecen como "Agotado").</p>
+      <div class="campo" style="margin-top:12px"><span>Dirección de la carta</span>
+        <div class="input-boton"><input class="input" readonly value="${esc(url)}"><button class="btn" data-act="copiarCarta">Copiar</button></div></div>
+      <div class="fila-botones" style="margin-top:12px">
+        <a class="btn" href="${esc(url)}" target="_blank" rel="noopener">${icon("externo")} Ver la carta</a>
+        <button class="btn btn-pri" data-act="qrMesas">${icon("print")} QR de las mesas</button>
+        <button class="btn" data-act="qrGeneral">${icon("bajar")} QR general (imagen)</button>
+      </div>
+      <p class="ayuda" style="margin-top:10px">${publicada ? `Publicada ${fechaHora(publicada.ts)} · ${n} productos.` : "Todavía no se publicó: se publica sola en unos segundos."} En la carta solo se ven los productos activos y marcados "Mostrar en la carta QR".</p>`;
+  }
+
+  function qrSvg(texto) {
+    const qr = qrcode(0, "M");
+    qr.addData(texto);
+    qr.make();
+    return qr.createSvgTag({ cellSize: 4, margin: 0, scalable: true });
+  }
+  function tarjetaQr(titulo, url) {
+    return `<div class="qr-tarjeta"><img src="img/logo.svg" alt="" class="qr-logo"><div class="qr-codigo">${qrSvg(url)}</div><b class="qr-mesa">${esc(titulo)}</b><span class="qr-txt">Escaneá y mirá la carta</span></div>`;
+  }
+  function hojaQr() {
+    return `<div class="hoja-qr">${S.mesas.map((m) => tarjetaQr(m.nombre, urlCarta(m.id))).join("")}${tarjetaQr("Carta", urlCarta())}</div>`;
+  }
+  function qrMesas() {
+    if (!S.mesas.length) return toast("Primero cargá las mesas");
+    const m = modal({
+      titulo: "Códigos QR de las mesas",
+      clase: "modal-ancho",
+      cuerpo: `<p class="ayuda">Uno por mesa, más uno general. En una hoja A4 entran 12. Cada código abre la carta con el nombre de la mesa; si después renombrás una mesa, el código sigue sirviendo.</p><div class="vista-hoja">${hojaQr()}</div>`,
+      pie: `<button class="btn btn-pri" data-a="imp">${icon("print")} Imprimir</button>`,
+    });
+    m.el.querySelector('[data-a="imp"]').onclick = () => imprimirHoja(hojaQr());
+  }
+  function qrGeneral() {
+    const qr = qrcode(0, "M");
+    qr.addData(urlCarta());
+    qr.make();
+    const n = qr.getModuleCount(), celda = 16, margen = 4 * celda;
+    const cv = document.createElement("canvas");
+    cv.width = cv.height = n * celda + margen * 2;
+    const g = cv.getContext("2d");
+    g.fillStyle = "#fff"; g.fillRect(0, 0, cv.width, cv.height);
+    g.fillStyle = "#1e1e1e";
+    for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (qr.isDark(r, c)) g.fillRect(margen + c * celda, margen + r * celda, celda, celda);
+    const a = document.createElement("a");
+    a.href = cv.toDataURL("image/png");
+    a.download = "qr-carta.png";
+    a.click();
   }
 
   // ── Mesas ──
@@ -171,6 +247,11 @@ export function mount(root) {
         } catch (err) { if (err.name !== "NotFoundError") toast(err.message || "No se pudo conectar", "error"); }
         renderDisp();
         break;
+      case "copiarCarta":
+        try { await navigator.clipboard.writeText(urlCarta()); toast("Enlace copiado"); } catch { toast("No se pudo copiar"); }
+        break;
+      case "qrMesas": qrMesas(); break;
+      case "qrGeneral": qrGeneral(); break;
       case "agregarMesa": agregarMesas(false); break;
       case "agregarVarias": agregarMesas(true); break;
       case "reset": if (await confirmar("Se borran todas las ventas y cambios del demo.", { ok: "Reiniciar", peligro: true })) auth.demoReset(); break;
@@ -180,10 +261,12 @@ export function mount(root) {
   renderDisp();
   renderNeg();
   renderMesas();
+  renderCarta();
   return {
     update(claves) {
       if (claves.includes("mesas")) renderMesas();
       if (claves.includes("config")) renderNeg();
     },
+    unmount() { soltarCarta?.(); },
   };
 }

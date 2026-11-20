@@ -525,6 +525,16 @@ select.input { appearance: none; background-image: linear-gradient(45deg, transp
 .mesa-edit small { color: var(--texto3); }
 .mesa-edit .btn-icono { width: 36px; height: 36px; color: var(--texto3); }
 
+/* ── Hoja de códigos QR ── */
+.vista-hoja { background: #fff; border: 1px solid var(--borde); border-radius: var(--radio-s); padding: 14px; margin-top: 12px; max-height: 60vh; overflow-y: auto; }
+.hoja-qr { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6mm; color: #1e1e1e; }
+.qr-tarjeta { border: 1px dashed #9a9a9a; border-radius: 4mm; padding: 5mm 4mm 4mm; display: flex; flex-direction: column; align-items: center; gap: 2mm; text-align: center; break-inside: avoid; page-break-inside: avoid; font-family: var(--f); }
+.qr-logo { width: 24mm; height: auto; }
+.qr-codigo svg { width: 36mm; height: 36mm; display: block; }
+.qr-mesa { font-size: 15pt; font-weight: 700; }
+.qr-txt { font-size: 9pt; color: #555; }
+@media (max-width: 599px) { .vista-hoja .hoja-qr { grid-template-columns: repeat(2, 1fr); } }
+
 /* ── Escáner ── */
 .escaner { position: fixed; inset: 0; z-index: 150; background: #000; color: #fff; display: flex; flex-direction: column; }
 .esc-top { display: flex; align-items: center; justify-content: space-between; padding: 8px 8px 8px 16px; padding-top: max(8px, env(safe-area-inset-top)); }

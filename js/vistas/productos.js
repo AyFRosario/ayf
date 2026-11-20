@@ -64,7 +64,7 @@ export function mount(root) {
   function editar(p = null, codigoInicial = "") {
     const cats = categorias();
     const nuevo = !p;
-    p = p || { nombre: "", categoria: cats[0] || "", precio: "", sector: codigoInicial ? "ninguno" : "cocina", codigo: codigoInicial, controlStock: !!codigoInicial, stock: 0, stockMin: 0, activo: true };
+    p = p || { nombre: "", categoria: cats[0] || "", precio: "", sector: codigoInicial ? "ninguno" : "cocina", codigo: codigoInicial, controlStock: !!codigoInicial, stock: 0, stockMin: 0, activo: true, enCarta: true, descripcion: "" };
     const m = modal({
       titulo: nuevo ? "Nuevo producto" : "Editar producto",
       cuerpo: `<form class="form" id="fProd">
@@ -73,6 +73,7 @@ export function mount(root) {
           <label class="campo"><span>Categoría</span><input class="input" id="eCat" list="eCats" value="${esc(p.categoria || "")}"><datalist id="eCats">${cats.map((c) => `<option value="${esc(c)}">`).join("")}</datalist></label>
           <label class="campo"><span>Precio</span><input class="input" id="ePre" inputmode="decimal" value="${p.precio === "" ? "" : Math.round(p.precio)}" required ${codigoInicial ? "autofocus" : ""}></label>
         </div>
+        <label class="campo"><span>Descripción para la carta QR (opcional)</span><textarea class="input" id="eDesc" rows="2" maxlength="160" placeholder="Ej: con salsa pomodoro y albahaca">${esc(p.descripcion || "")}</textarea></label>
         <div class="campo"><span>¿Quién lo prepara?</span>
           <div class="segmentado ancho" id="eSec">${Object.entries(SECTORES).map(([k, v]) => `<button type="button" data-sec="${k}" class="${(p.sector || "cocina") === k ? "activo" : ""}">${v}</button>`).join("")}</div>
           <small class="ayuda">"Lo sirve el mozo": latas, botellas o agua que no pasan por cocina ni barra.</small>
@@ -85,7 +86,8 @@ export function mount(root) {
           <label class="campo"><span>Stock actual</span><input class="input" id="eStock" inputmode="decimal" value="${fmtCant(p.stock)}"></label>
           <label class="campo"><span>Avisar con menos de</span><input class="input" id="eMin" inputmode="decimal" value="${fmtCant(p.stockMin)}"></label>
         </div>
-        <label class="switch"><input type="checkbox" id="eAct" ${p.activo !== false ? "checked" : ""}><span>Activo (aparece en la carta)</span></label>
+        <label class="switch"><input type="checkbox" id="eAct" ${p.activo !== false ? "checked" : ""}><span>Activo (lo pueden cargar los mozos)</span></label>
+        <label class="switch"><input type="checkbox" id="eCarta" ${p.enCarta !== false ? "checked" : ""}><span>Mostrar en la carta QR de los clientes</span></label>
       </form>`,
       pie: `${nuevo ? "" : `<button class="btn btn-peligro" data-act="borrar">${icon("basura")}</button>`}<button type="submit" form="fProd" class="btn btn-pri">${nuevo ? "Crear" : "Guardar"}</button>`,
     });
@@ -122,6 +124,8 @@ export function mount(root) {
         controlStock: $("#eCtl").checked,
         stockMin: num($("#eMin").value),
         activo: $("#eAct").checked,
+        enCarta: $("#eCarta").checked,
+        descripcion: $("#eDesc").value.trim(),
       };
       if (!datos.nombre) return toast("Falta el nombre", "error");
       const stockNuevo = num($("#eStock").value);

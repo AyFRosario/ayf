@@ -6,8 +6,9 @@ import { initDB, db, auth, MODO, onError } from "./db.js";
 import { S, emit, onStore, puede, ROLES, CONFIG_DEF } from "./store.js";
 import { $, esc, icon, toast, modal, confirmar, iniciales, fmt } from "./util.js";
 import { reconectarImpresora } from "./print.js";
+import { iniciarPublicacion, detenerPublicacion } from "./publicar.js";
 
-const VERSION = "0.2.0";
+const VERSION = "0.3.0";
 import * as vSalon from "./vistas/salon.js";
 import * as vMesa from "./vistas/mesa.js";
 import * as vCocina from "./vistas/cocina.js";
@@ -38,6 +39,8 @@ function limpiar() {
   actual?.inst?.unmount?.();
   actual = null;
   iniciada = false;
+  S.cargados.clear();
+  detenerPublicacion();
 }
 
 function pantalla(html) {
@@ -105,13 +108,17 @@ function alCambiarUsuario(u) {
 
 function iniciarApp() {
   iniciada = true;
-  escuchar("config", { id: "general" }, (c) => { S.config = { ...CONFIG_DEF, ...(c || {}) }; emit("config"); });
-  escuchar("mesas", {}, (a) => {
+  // "cargado" = ya llegó la respuesta del servidor (no solo la copia local)
+  const marcar = (k, meta) => { if (!meta?.fromCache) S.cargados.add(k); };
+  escuchar("config", { id: "general", meta: true }, (c, meta) => { S.config = { ...CONFIG_DEF, ...(c || {}) }; marcar("config", meta); emit("config"); });
+  escuchar("mesas", { meta: true }, (a, meta) => {
     S.mesas = a.sort((x, y) => (x.orden ?? 999) - (y.orden ?? 999) || String(x.nombre).localeCompare(String(y.nombre), "es", { numeric: true }));
+    marcar("mesas", meta);
     emit("mesas");
   });
-  escuchar("productos", {}, (a) => {
+  escuchar("productos", { meta: true }, (a, meta) => {
     S.productos = a.sort((x, y) => (x.orden ?? 0) - (y.orden ?? 0) || String(x.nombre).localeCompare(String(y.nombre), "es"));
+    marcar("productos", meta);
     emit("productos");
   });
   escuchar("comandas", { where: [["estado", "in", ["abierta", "cuenta"]]] }, (a) => { S.comandas = a; emit("comandas"); });
@@ -124,6 +131,7 @@ function iniciarApp() {
   renderShell();
   navegar();
   reconectarImpresora();
+  if (puede("ajustesNegocio")) iniciarPublicacion();
 }
 
 // ── Pantallas de acceso ──
