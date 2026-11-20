@@ -94,6 +94,12 @@ service cloud.firestore {
         allow read, write: if gestion(nid);
       }
 
+      // Carta pública: la lee carta.html sin iniciar sesión (código QR de las mesas)
+      match /publico/{doc} {
+        allow read: if true;
+        allow write: if gestion(nid);
+      }
+
       match /logs/{id} {
         allow read: if gestion(nid);
         allow create: if miembro(nid) && request.resource.data.uid == request.auth.uid;
