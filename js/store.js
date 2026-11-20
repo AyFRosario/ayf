@@ -26,6 +26,7 @@ export const S = {
   items: [],       // ítems de comandas sin cobrar (cerrado == false)
   jornada: null,   // caja abierta
   usuarios: [],
+  insumos: [],
   cargados: new Set(), // colecciones que ya respondió el servidor
 };
 
@@ -66,6 +67,29 @@ export function agrupar(its) {
   return [...m.values()];
 }
 export const comandaDeMesa = (m) => (m?.comandaId ? S.comandas.find((c) => c.id === m.comandaId) || null : null);
+
+// ── Insumos y recetas ──
+export const UNIDADES = { kg: "kg", g: "g", l: "l", ml: "ml", u: "u." };
+export function fmtCantidad(n, unidad) {
+  const v = Math.round((Number(n) || 0) * 1000) / 1000;
+  return `${v.toLocaleString("es-AR", { maximumFractionDigits: 3 })} ${UNIDADES[unidad] || unidad || ""}`.trim();
+}
+export const usosDeInsumo = (id) => S.productos.filter((p) => (p.receta || []).some((r) => r.insumoId === id));
+// Insumos que consume una cantidad de un producto: [{ id, cant }]
+export function consumoReceta(productoId, cant) {
+  const p = S.productos.find((x) => x.id === productoId);
+  return (p?.receta || [])
+    .filter((r) => r.insumoId && r.cant > 0 && S.insumos.some((i) => i.id === r.insumoId))
+    .map((r) => ({ id: r.insumoId, cant: Math.round(r.cant * cant * 1000) / 1000 }));
+}
+// Suma consumos de varios ítems por insumo → operaciones de stock
+export function opsInsumos(consumos, signo = -1) {
+  const tot = {};
+  for (const c of consumos) tot[c.id] = (tot[c.id] || 0) + c.cant;
+  return Object.entries(tot).map(([id, cant]) => ({ op: "update", col: "insumos", id, data: { stock: { __op: "inc", n: signo * Math.round(cant * 1000) / 1000 } } }));
+}
+export const faltantesDe = (p) => (p.receta || []).map((r) => S.insumos.find((i) => i.id === r.insumoId)).filter((i) => i && (Number(i.stock) || 0) <= 0);
+export const insumosBajos = () => S.insumos.filter((i) => (Number(i.stockMin) || 0) > 0 && (Number(i.stock) || 0) <= (Number(i.stockMin) || 0));
 
 // UPC-A (12 dígitos) y EAN-13 con 0 adelante son el mismo producto
 export function productoPorCodigo(codigo) {

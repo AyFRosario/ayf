@@ -1,4 +1,4 @@
-# A&F · Gestión del bar — versión 0.4
+# A&F · Gestión del bar — versión 0.5
 
 PWA para celular, tablet y PC. HTML, CSS y JS sin compilar, igual que el resto de JPSoft. Se publica en GitHub Pages y usa Firebase (Firestore + Auth) con caché sin conexión.
 
@@ -99,6 +99,19 @@ En **Reportes** (encargado y dueño) se elige el período: última jornada, últ
 
 El **día comercial empieza a las 6 de la mañana**: lo que se cobra a las 2 de la madrugada cuenta para la noche anterior.
 
+## 3 quinquies. Stock por receta (insumos)
+
+- **Insumos:** se cargan en **Productos → Insumos** (carne, muzzarella, papas, harina, aceite…), cada uno con su unidad (kg, g, l, ml o unidades), el stock, el mínimo para avisar y el costo opcional.
+- **Recetas:** en cada producto, la sección **Receta** dice qué insumos usa cada unidad vendida. Por ejemplo, una milanesa napolitana usa 0,25 kg de carne, 0,1 kg de muzzarella y 0,3 kg de papas. Si los insumos tienen costo, se ve el costo del plato y su margen.
+- **Cuándo se descuenta:** cuando el mozo **envía** el pedido, no al cobrar. Así el aviso llega durante el servicio. Si se anula un ítem enviado, los insumos vuelven. Lo que se cobra sin haberse enviado se descuenta al cobrar.
+- **Avisos:**
+  - en el **Salón**, una banda roja con los insumos por debajo del mínimo (solo para encargado y dueño);
+  - en la pestaña **Insumos**, un contador;
+  - en la carta del mozo, la etiqueta "falta muzzarella" cuando un insumo llega a 0. Avisa pero no bloquea la venta.
+- **Ingreso de insumos:** tocás el insumo, escribís cuánto entró y se suma. Un conteo físico se carga editando el stock del insumo.
+- **Diferencia con los productos envasados:** el stock de las bebidas y otros envasados (con "Controlar stock") se sigue descontando al cobrar.
+- **Requisito:** hay que volver a publicar `firestore.rules`, que ahora incluye la regla `insumos`.
+
 ## 4. Escáner de códigos
 
 - **Android (Chrome):** usa el lector que trae el navegador. Es rápido y funciona sin conexión.
@@ -139,7 +152,7 @@ js/vendor/qrcode.mjs ← generador de QR (Kazuhiko Arase, licencia MIT)
 js/vistas/         ← salon, mesa, cobro, cocina, caja, productos, usuarios, ajustes
 ```
 
-**Colecciones** (dentro de `negocios/{id}/`): `config`, `usuarios`, `mesas`, `productos`, `comandas`, `items`, `ventas`, `jornadas`, `movCaja`, `logs`, `publico`.
+**Colecciones** (dentro de `negocios/{id}/`): `config`, `usuarios`, `mesas`, `productos`, `insumos`, `comandas`, `items`, `ventas`, `jornadas`, `movCaja`, `logs`, `publico`.
 
 ## 7. De dónde salió cada cosa
 
@@ -164,7 +177,6 @@ Problemas de los proyectos anteriores que esta versión no hereda:
 
 - Reservas (de Dairus) y "Llamar al mozo" desde la carta QR
 - Fotos de los productos en la carta QR
-- Stock por receta / insumos en gramos (base: los combos de Tienda)
 - Compras y proveedores, clientes con cuenta corriente
 - Reportes por período, productos más vendidos, rendimiento por mozo
 - Recordatorios (habilitación, matafuegos, campana, plagas) y backup a Excel (de Cocheras)

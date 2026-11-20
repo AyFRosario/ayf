@@ -1,19 +1,23 @@
 // ============================================================
 //  A&F · Productos, stock e ingreso de mercadería por escáner
 // ============================================================
-import { S, categorias, productoPorCodigo, SECTORES, log } from "../store.js";
+import { S, categorias, productoPorCodigo, SECTORES, log, insumosBajos } from "../store.js";
 import { db, inc } from "../db.js";
 import { esc, fmt, num, icon, modal, toast, confirmar } from "../util.js";
 import { buscar } from "../buscar.js";
 import { abrirEscaner, escucharLectorUSB, precargarEscaner } from "../scanner.js";
 import { menuExcel, abrirImportador, descargarPlantilla, precargarExcel } from "../importar.js";
+import { montarInsumos, editorReceta } from "./insumos.js";
 
-export function mount(root) {
+export function mount(root, { param } = {}) {
   let q = "";
   let filtro = "Todas";
+  let pestana = param === "insumos" ? "insumos" : "carta";
 
   root.innerHTML = `
-    <div class="productos">
+    <div class="segmentado pestanas" id="pTabs"><button data-tab="carta">Carta</button><button data-tab="insumos">Insumos <span class="contador rojo" id="pBajos"></span></button></div>
+    <div id="pInsumos"></div>
+    <div class="productos" id="pCarta">
       <div class="prod-barra">
         <div class="input-icono">${icon("buscar")}<input id="pBusq" class="input" type="search" placeholder="Buscar producto o código…" autocomplete="off"></div>
         <div class="prod-botones">
@@ -65,6 +69,7 @@ export function mount(root) {
     const cats = categorias();
     const nuevo = !p;
     p = p || { nombre: "", categoria: cats[0] || "", precio: "", sector: codigoInicial ? "ninguno" : "cocina", codigo: codigoInicial, controlStock: !!codigoInicial, stock: stockInicial, stockMin: 0, activo: true, enCarta: true, descripcion: "" };
+    const receta = editorReceta(p.receta || [], Number(p.precio) || 0);
     const m = modal({
       titulo: nuevo ? "Nuevo producto" : "Editar producto",
       cuerpo: `<form class="form" id="fProd">
@@ -88,11 +93,14 @@ export function mount(root) {
         </div>
         <label class="switch"><input type="checkbox" id="eAct" ${p.activo !== false ? "checked" : ""}><span>Activo (lo pueden cargar los mozos)</span></label>
         <label class="switch"><input type="checkbox" id="eCarta" ${p.enCarta !== false ? "checked" : ""}><span>Mostrar en la carta QR de los clientes</span></label>
+        <div id="eReceta">${receta.html}</div>
       </form>`,
       pie: `${nuevo ? "" : `<button class="btn btn-peligro" data-act="borrar">${icon("basura")}</button>`}<button type="submit" form="fProd" class="btn btn-pri">${nuevo ? "Crear" : "Guardar"}</button>`,
     });
     const $ = (s) => m.el.querySelector(s);
     let sector = p.sector || "cocina";
+    receta.montar($("#eReceta"));
+    $("#ePre").addEventListener("input", () => receta.precio(num($("#ePre").value)));
     $("#eSec").onclick = (e) => {
       const b = e.target.closest("[data-sec]");
       if (!b) return;
@@ -126,6 +134,7 @@ export function mount(root) {
         activo: $("#eAct").checked,
         enCarta: $("#eCarta").checked,
         descripcion: $("#eDesc").value.trim(),
+        receta: receta.valor(),
       };
       if (!datos.nombre) return toast("Falta el nombre", "error");
       const stockNuevo = num($("#eStock").value);
@@ -392,9 +401,33 @@ export function mount(root) {
     else editar(null, codigo);
   });
 
+  let insumos = null;
+  function mostrarPestana() {
+    root.querySelectorAll("#pTabs [data-tab]").forEach((b) => b.classList.toggle("activo", b.dataset.tab === pestana));
+    root.querySelector("#pCarta").hidden = pestana !== "carta";
+    const cont = root.querySelector("#pInsumos");
+    cont.hidden = pestana !== "insumos";
+    if (pestana === "insumos" && !insumos) insumos = montarInsumos(cont);
+    history.replaceState(null, "", pestana === "insumos" ? "#/productos/insumos" : "#/productos");
+  }
+  function marcarBajos() {
+    const n = insumosBajos().length;
+    root.querySelector("#pBajos").textContent = n || "";
+  }
+  root.querySelector("#pTabs").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-tab]");
+    if (b) { pestana = b.dataset.tab; mostrarPestana(); }
+  });
+
   render();
+  mostrarPestana();
+  marcarBajos();
   return {
-    update(claves) { if (claves.includes("productos")) render(); },
+    update(claves) {
+      if (claves.includes("productos")) render();
+      if (claves.includes("insumos")) marcarBajos();
+      insumos?.update(claves);
+    },
     unmount() { soltar(); },
   };
 }

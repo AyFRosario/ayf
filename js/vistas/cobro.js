@@ -4,7 +4,7 @@
 // Descuento en $ o %, pago dividido entre varios medios, vuelto,
 // stock descontado con incrementos y ticket no fiscal.
 import { CONFIG } from "../config.js";
-import { S, puede, itemsDe, vigentes, agrupar, MEDIOS, nroVenta, log, onStore } from "../store.js";
+import { S, puede, itemsDe, vigentes, agrupar, MEDIOS, nroVenta, log, onStore, consumoReceta, opsInsumos } from "../store.js";
 import { db, inc } from "../db.js";
 import { esc, fmt, num, icon, modal, toast, beep, pedirTexto } from "../util.js";
 import { imprimir, ticketVenta } from "../print.js";
@@ -173,10 +173,13 @@ export function abrirCobro(cid) {
       { op: "update", col: "mesas", id: c.mesaId, data: { comandaId: null } },
     ];
     // Ítems: lo que todavía se está preparando sigue visible en cocina hasta entregarse
+    const consumos = [];
     for (const i of itemsDe(cid)) {
+      if (i.estado === "nuevo") consumos.push(...consumoReceta(i.productoId, i.cant));
       if (["pendiente", "preparando", "listo"].includes(i.estado)) ops.push({ op: "update", col: "items", id: i.id, data: { comandaCerrada: true } });
       else ops.push({ op: "update", col: "items", id: i.id, data: { cerrado: true, ...(i.estado === "nuevo" ? { estado: "entregado", entregadoTs: t } : {}) } });
     }
+    ops.push(...opsInsumos(consumos, -1));
     // Stock: siempre con incrementos
     const porProd = {};
     for (const l of r.lineas) porProd[l.productoId] = (porProd[l.productoId] || 0) + l.cant;

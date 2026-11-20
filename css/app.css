@@ -516,6 +516,14 @@ body:has(.escaner) .toasts { bottom: auto; top: calc(64px + env(safe-area-inset-
 .fila-prod.inactivo { opacity: 0.5; }
 @media (max-width: 599px) { .prod-botones { width: 100%; } .prod-botones .btn { flex: 1; padding: 0 10px; font-size: 13px; } }
 
+.pestanas { margin-bottom: 14px; }
+.pestanas button { min-width: 110px; }
+.contador.rojo { background: var(--rojo); }
+.receta .rec-fila { display: grid; grid-template-columns: 1fr 86px 34px 40px; gap: 6px; align-items: center; margin-bottom: 6px; }
+.receta .rec-u { font-size: 13px; color: var(--texto2); }
+.receta .rec-pie { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.receta .rec-pie .ayuda { font-weight: 600; color: var(--texto2); }
+
 /* ── Usuarios / ajustes ── */
 .usuarios .lista { background: var(--sup); border: 1px solid var(--borde); border-radius: var(--radio); padding: 0 12px; margin-bottom: 14px; }
 .roles p { margin: 6px 0; font-size: 14px; }

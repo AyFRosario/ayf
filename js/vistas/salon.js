@@ -1,7 +1,7 @@
 // ============================================================
 //  A&F · Salón (mapa de mesas)
 // ============================================================
-import { S, puede, itemsDe, vigentes, totalItems, comandaDeMesa, sectoresMesas, log } from "../store.js";
+import { S, puede, itemsDe, vigentes, totalItems, comandaDeMesa, sectoresMesas, log, insumosBajos, fmtCantidad } from "../store.js";
 import { db } from "../db.js";
 import { esc, fmt, durTxt, minutos, icon, modal, toast, iniciales } from "../util.js";
 
@@ -22,10 +22,14 @@ export function mount(root) {
 
   function render() {
     // Aviso de caja cerrada (solo quien puede abrirla)
+    const bajos = puede("productos") ? insumosBajos() : [];
     root.querySelector("#sAviso").innerHTML =
-      !S.jornada && puede("caja")
+      (!S.jornada && puede("caja")
         ? `<a href="#/caja" class="banda ambar">${icon("caja")} La caja está cerrada. Abrila para poder cobrar.</a>`
-        : "";
+        : "") +
+      (bajos.length
+        ? `<a href="#/productos/insumos" class="banda rojo">${icon("alerta")} Por terminarse: ${bajos.slice(0, 4).map((i) => `${esc(i.nombre)} (${fmtCantidad(i.stock, i.unidad)})`).join(", ")}${bajos.length > 4 ? ` y ${bajos.length - 4} más` : ""}</a>`
+        : "");
 
     // Pedidos listos para llevar
     const listos = S.items.filter((i) => i.estado === "listo");

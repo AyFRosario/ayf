@@ -62,6 +62,13 @@ service cloud.firestore {
         allow update: if gestion(nid) || (cobra(nid) && soloCambia(['stock']));
       }
 
+      // Insumos: los mozos los descuentan al enviar pedidos (solo el stock)
+      match /insumos/{id} {
+        allow read: if miembro(nid);
+        allow create, delete: if gestion(nid);
+        allow update: if gestion(nid) || (personal(nid) && soloCambia(['stock']));
+      }
+
       match /comandas/{id} {
         allow read: if miembro(nid);
         allow create: if personal(nid);

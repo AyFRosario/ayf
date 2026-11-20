@@ -8,7 +8,7 @@ import { $, esc, icon, toast, modal, confirmar, iniciales, fmt } from "./util.js
 import { reconectarImpresora } from "./print.js";
 import { iniciarPublicacion, detenerPublicacion } from "./publicar.js";
 
-const VERSION = "0.4.0";
+const VERSION = "0.5.0";
 import * as vSalon from "./vistas/salon.js";
 import * as vMesa from "./vistas/mesa.js";
 import * as vCocina from "./vistas/cocina.js";
@@ -130,6 +130,7 @@ function iniciarApp() {
     emit("jornada");
   });
   escuchar("usuarios", {}, (a) => { S.usuarios = a; emit("usuarios"); });
+  if (S.rol !== "cocina") escuchar("insumos", {}, (a) => { S.insumos = a.sort((x, y) => String(x.nombre).localeCompare(String(y.nombre), "es")); emit("insumos"); });
   renderShell();
   navegar();
   reconectarImpresora();

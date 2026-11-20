@@ -1,7 +1,7 @@
 // ============================================================
 //  A&F · Comanda de una mesa (pantalla del mozo)
 // ============================================================
-import { S, puede, itemsDe, vigentes, totalItems, categorias, productoPorCodigo, ESTADOS_ITEM, dispositivo, log, agrupar } from "../store.js";
+import { S, puede, itemsDe, vigentes, totalItems, categorias, productoPorCodigo, ESTADOS_ITEM, dispositivo, log, agrupar, consumoReceta, opsInsumos, faltantesDe } from "../store.js";
 import { db, inc } from "../db.js";
 import { esc, fmt, hora, durTxt, icon, modal, toast, confirmar, pedirTexto, beep, vibrar } from "../util.js";
 import { buscar } from "../buscar.js";
@@ -116,10 +116,12 @@ export function mount(root, { param: cid }) {
     for (const i of items()) if (i.estado === "nuevo") enPedido[i.productoId] = (enPedido[i.productoId] || 0) + i.cant;
     root.querySelector("#cCarta").innerHTML = lista.length
       ? lista.map((p) => {
-          const sin = p.controlStock && (Number(p.stock) || 0) <= 0;
+          const falta = faltantesDe(p);
+          const sin = (p.controlStock && (Number(p.stock) || 0) <= 0) || falta.length > 0;
+          const tag = p.controlStock && (Number(p.stock) || 0) <= 0 ? "sin stock" : falta.length ? `falta ${falta[0].nombre.toLowerCase()}` : "";
           return `<button class="prod ${sin ? "sin-stock" : ""}" data-act="agregar" data-id="${esc(p.id)}">
             <span class="prod-nom">${esc(p.nombre)}</span>
-            <span class="prod-pie"><span class="prod-pre">${fmt(p.precio)}</span>${sin ? `<span class="prod-tag">sin stock</span>` : ""}</span>
+            <span class="prod-pie"><span class="prod-pre">${fmt(p.precio)}</span>${tag ? `<span class="prod-tag">${esc(tag)}</span>` : ""}</span>
             ${enPedido[p.id] ? `<span class="prod-cant">${enPedido[p.id]}</span>` : ""}</button>`;
         }).join("")
       : `<p class="ayuda centro">No encontré "${esc(q)}".</p>`;
@@ -138,6 +140,7 @@ export function mount(root, { param: cid }) {
       mozo: c.mozo || S.perfil.nombre, mozoUid: c.mozoUid || S.user.uid, cargadoPor: S.perfil.nombre, ts: Date.now(),
     });
     if (p.controlStock && (Number(p.stock) || 0) <= 0) toast(`${p.nombre}: figura sin stock`, "aviso");
+    else { const f = faltantesDe(p); if (f.length) toast(`Ojo: figura sin ${f.map((x) => x.nombre.toLowerCase()).join(" ni ")}`, "aviso"); }
   }
 
   function enviar() {
@@ -146,12 +149,17 @@ export function mount(root, { param: cid }) {
     if (!c || !nuevos.length) return;
     const envioId = Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
     const t = Date.now();
-    const ops = nuevos.map((i) => ({
-      op: "update", col: "items", id: i.id,
-      data: i.sector === "ninguno"
+    const consumos = [];
+    const ops = nuevos.map((i) => {
+      // Insumos de la receta: se descuentan ahora y quedan anotados en el ítem
+      const cons = consumoReceta(i.productoId, i.cant);
+      consumos.push(...cons);
+      const base = i.sector === "ninguno"
         ? { estado: "entregado", envioId, enviado: t, entregadoTs: t }
-        : { estado: "pendiente", envioId, enviado: t },
-    }));
+        : { estado: "pendiente", envioId, enviado: t };
+      return { op: "update", col: "items", id: i.id, data: cons.length ? { ...base, insumos: cons } : base };
+    });
+    ops.push(...opsInsumos(consumos, -1));
     if (c.estado === "cuenta") ops.push({ op: "update", col: "comandas", id: cid, data: { estado: "abierta" } });
     db.batch(ops);
     const aCocina = nuevos.filter((i) => i.sector !== "ninguno");
@@ -192,7 +200,10 @@ export function mount(root, { param: cid }) {
     if (!i) return;
     const motivo = await pedirTexto(`Anular ${i.cant}× ${i.desc}`, { placeholder: "Motivo", sugerencias: ["Error de carga", "El cliente no lo quiso", "Demora", "Invitación de la casa"], ok: "Anular" });
     if (motivo === null) return;
-    db.update("items", id, { estado: "anulado", motivo: motivo || "Sin motivo", anuladoPor: S.perfil.nombre, anuladoTs: Date.now() });
+    db.batch([
+      { op: "update", col: "items", id, data: { estado: "anulado", motivo: motivo || "Sin motivo", anuladoPor: S.perfil.nombre, anuladoTs: Date.now() } },
+      ...opsInsumos(i.insumos || [], +1), // los insumos descontados al enviar vuelven
+    ]);
     log("anulacion", `Ítem anulado en ${i.mesaNombre}: ${i.cant}× ${i.desc} (${motivo || "sin motivo"})`);
   }
 
@@ -354,7 +365,7 @@ export function mount(root, { param: cid }) {
   const reloj = setInterval(() => { if (!document.querySelector(".modal-fondo")) render(); }, 60000);
   return {
     update(claves) {
-      if (claves.some((k) => ["comandas", "items", "productos", "usuarios", "config", "perfil"].includes(k))) render();
+      if (claves.some((k) => ["comandas", "items", "productos", "insumos", "usuarios", "config", "perfil"].includes(k))) render();
     },
     unmount() { soltarLector(); clearTimeout(revisar); clearInterval(reloj); },
   };
