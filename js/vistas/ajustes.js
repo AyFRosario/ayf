@@ -1,7 +1,7 @@
 // ============================================================
 //  A&F · Ajustes: este dispositivo, negocio y mesas
 // ============================================================
-import { S, puede, MEDIOS, dispositivo, guardarDispositivo, sectoresMesas, comandaDeMesa, log } from "../store.js";
+import { S, puede, MEDIOS, dispositivo, guardarDispositivo, sectoresMesas, comandaDeMesa, log, PANTALLAS_INICIO } from "../store.js";
 import { db, auth, MODO } from "../db.js";
 import { esc, icon, modal, toast, confirmar, pedirTexto, fechaHora } from "../util.js";
 import { imprimir, imprimirHoja, ticketPrueba, conectarBluetooth, conectarUSB, btConectada, usbConectada } from "../print.js";
@@ -10,7 +10,7 @@ import { qrcode } from "../vendor/qrcode.mjs";
 import { descargarRespaldo, diasSinRespaldo } from "../respaldo.js";
 import { firmaHTML, iconoContacto, usuarioRed } from "../firma.js";
 
-const VERSION_APP = "0.7.1";
+const VERSION_APP = "0.7.2";
 
 const MODOS = {
   ninguna: { t: "Sin impresora", d: "Este dispositivo no imprime." },
@@ -20,12 +20,16 @@ const MODOS = {
   rawbt: { t: "App RawBT (Android)", d: "Instalá RawBT desde Google Play y configurá ahí la impresora (Bluetooth clásico, USB o de red/wifi). Cada impresión abre RawBT un instante." },
 };
 
+const PERM_INICIO = { salon: "salon", caja: "caja", reservas: "reservas", cocina: "cocina", productos: "productos" };
+const inicios = () => PANTALLAS_INICIO.filter(([k]) => puede(PERM_INICIO[k]));
+const puedeInicio = (k) => !!k && inicios().some(([x]) => x === k);
+
 export function mount(root) {
   const negocio = puede("ajustesNegocio");
   root.innerHTML = `
     <div class="ajustes">
       <section class="tarjeta" id="aDisp"></section>
-      ${negocio ? `<section class="tarjeta" id="aCarta"></section><section class="tarjeta" id="aNeg"></section><section class="tarjeta" id="aMesas"></section><section class="tarjeta" id="aResp"></section>` : ""}
+      ${negocio ? `<section class="tarjeta" id="aCarta"></section><section class="tarjeta" id="aResp"></section><section class="tarjeta" id="aMesas"></section><section class="tarjeta" id="aNeg"></section>` : ""}
       ${MODO === "demo" ? `<section class="tarjeta"><h3>Modo demo</h3><p class="ayuda">Los datos están solo en este navegador.</p><button class="btn btn-peligro" data-act="reset">Reiniciar datos del demo</button></section>` : ""}
       <footer class="ajustes-pie"><img src="img/logo.svg" alt="A&F"><small>Versión ${VERSION_APP}</small>${firmaHTML()}</footer>
     </div>`;
@@ -39,6 +43,8 @@ export function mount(root) {
       <h3>Este dispositivo</h3>
       <p class="ayuda">Estos ajustes quedan guardados solo en este celular, tablet o PC.</p>
       <div class="form">
+        ${inicios().length > 1 ? `<label class="campo"><span>Al abrir la app, mostrar</span><select class="input" id="dInicio">${inicios().map(([k, t]) => `<option value="${k}" ${k === (puedeInicio(d.inicio) ? d.inicio : S.rol === "cocina" ? "cocina" : "salon") ? "selected" : ""}>${t}</option>`).join("")}</select>
+          <small class="ayuda">Por ejemplo: la PC del mostrador en Caja, la tablet de la cocina en Cocina y barra.</small></label>` : ""}
         <label class="campo"><span>Código del dispositivo</span><input class="input chico" id="dCod" value="${esc(d.codigo)}" maxlength="4"><small class="ayuda">Va adelante del número de venta (${esc(d.codigo)}-0001). Que no se repita entre dispositivos.</small></label>
         <label class="campo"><span>Impresora</span><select class="input" id="dModo">${Object.entries(MODOS).map(([k, v]) => `<option value="${k}" ${imp.modo === k ? "selected" : ""}>${v.t}</option>`).join("")}</select>
           <small class="ayuda">${esc(MODOS[imp.modo]?.d || "")}</small></label>
@@ -239,6 +245,7 @@ export function mount(root) {
     else if (t.id === "dCorte") guardarDispositivo({ impresora: { cortar: t.checked } });
     else if (t.id === "dAcentos") guardarDispositivo({ impresora: { sinAcentos: t.checked } });
     else if (t.id === "dEnviar") guardarDispositivo({ impresora: { alEnviar: t.checked } });
+    else if (t.id === "dInicio") { guardarDispositivo({ inicio: t.value }); toast("Listo: este dispositivo abre en " + (PANTALLAS_INICIO.find(([k]) => k === t.value)?.[1] || "")); }
     else if (t.id === "dCod") {
       const v = t.value.trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
       if (v) { guardarDispositivo({ codigo: v }); toast("Código guardado"); }

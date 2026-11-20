@@ -1,4 +1,4 @@
-# A&F — versión 0.7
+# A&F — versión 0.7.2
 
 PWA para celular, tablet y PC. HTML, CSS y JS sin compilar, igual que el resto de JPSoft. Se publica en GitHub Pages y usa Firebase (Firestore + Auth) con caché sin conexión.
 
@@ -199,6 +199,18 @@ El **día comercial empieza a las 6 de la mañana**: lo que se cobra a las 2 de 
   - en **Productos → Categorías** se renombran y se ordenan; el orden es el de la carta QR y el de la comanda;
   - la categoría "Menúes" pasa sola a llamarse "Menús" la primera vez que un dueño o encargado abre esta versión.
 - **Carta QR:** las etiquetas de arriba quedan marcadas al tocarlas y siguen la sección que se está viendo. El desplazamiento con el dedo ya no se corta.
+
+## 3 octies. Menú ordenado por uso (v0.7.2)
+
+- **Orden:** el menú va de lo más usado a lo menos usado y es el mismo en la PC y en el celular.
+  - **Servicio:** Salón, Caja, Reservas, Cocina y barra.
+  - **Administración:** Productos, Compras, Reportes, Clientes, Vencimientos.
+  - **Configuración:** Usuarios, Ajustes.
+- **Celular:** la barra de abajo muestra las cuatro primeras que puede ver cada rol. El resto queda en **Más**, agrupado igual que en la PC.
+  - Dueño y encargado: Salón, Caja, Reservas, Cocina y barra, y Más.
+  - Mozo: Salón, Reservas y Ajustes.
+- **Pantalla al abrir:** en **Ajustes → Este dispositivo → Al abrir la app, mostrar** se elige con qué pantalla arranca cada equipo. Por ejemplo, la PC del mostrador en Caja y la tablet de la cocina en Cocina y barra. Si el rol no puede ver la pantalla elegida, abre en Salón.
+- **Ajustes:** Este dispositivo, Carta QR, Respaldo, Mesas y Negocio, en ese orden.
 
 ## 4. Escáner de códigos
 

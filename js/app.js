@@ -3,13 +3,13 @@
 // ============================================================
 import { CONFIG } from "./config.js";
 import { initDB, db, auth, MODO, onError } from "./db.js";
-import { S, emit, onStore, puede, ROLES, CONFIG_DEF, fechaStr, categorias } from "./store.js";
+import { S, emit, onStore, puede, ROLES, CONFIG_DEF, fechaStr, categorias, dispositivo } from "./store.js";
 import { firmaHTML } from "./firma.js";
 import { $, esc, icon, toast, modal, confirmar, iniciales, fmt, normalizar } from "./util.js";
 import { reconectarImpresora } from "./print.js";
 import { iniciarPublicacion, detenerPublicacion } from "./publicar.js";
 
-const VERSION = "0.7.1";
+const VERSION = "0.7.2";
 import * as vSalon from "./vistas/salon.js";
 import * as vMesa from "./vistas/mesa.js";
 import * as vCocina from "./vistas/cocina.js";
@@ -23,22 +23,24 @@ import * as vCompras from "./vistas/compras.js";
 import * as vClientes from "./vistas/clientes.js";
 import * as vRecordatorios from "./vistas/recordatorios.js";
 
+// El orden de RUTAS es el orden del menú, de la más usada a la menos usada.
+// Es el mismo en la PC (menú de la izquierda) y en el celular (barra de abajo:
+// las primeras 4 y el resto en "Más").
 const RUTAS = {
-  salon: { mod: vSalon, perm: "salon", titulo: "Salón", icono: "mesas", menu: true },
-  mesa: { mod: vMesa, perm: "mesa", titulo: "Mesa" },
-  cocina: { mod: vCocina, perm: "cocina", titulo: "Cocina y barra", icono: "cocina", menu: true },
-  caja: { mod: vCaja, perm: "caja", titulo: "Caja", icono: "caja", menu: true },
-  reservas: { mod: vReservas, perm: "reservas", titulo: "Reservas", icono: "calendario", menu: true },
-  reportes: { mod: vReportes, perm: "reportes", titulo: "Reportes", icono: "grafico", menu: true, grupo: "Administración" },
+  salon: { mod: vSalon, perm: "salon", titulo: "Salón", icono: "mesas", menu: true, grupo: "Servicio" },
+  caja: { mod: vCaja, perm: "caja", titulo: "Caja", icono: "caja", menu: true, grupo: "Servicio" },
+  reservas: { mod: vReservas, perm: "reservas", titulo: "Reservas", icono: "calendario", menu: true, grupo: "Servicio" },
+  cocina: { mod: vCocina, perm: "cocina", titulo: "Cocina y barra", icono: "cocina", menu: true, grupo: "Servicio" },
   productos: { mod: vProductos, perm: "productos", titulo: "Productos", icono: "productos", menu: true, grupo: "Administración" },
   compras: { mod: vCompras, perm: "compras", titulo: "Compras", icono: "camion", menu: true, grupo: "Administración" },
+  reportes: { mod: vReportes, perm: "reportes", titulo: "Reportes", icono: "grafico", menu: true, grupo: "Administración" },
   clientes: { mod: vClientes, perm: "clientes", titulo: "Clientes", icono: "libreta", menu: true, grupo: "Administración" },
   recordatorios: { mod: vRecordatorios, perm: "recordatorios", titulo: "Vencimientos", icono: "alarma", menu: true, grupo: "Administración" },
   usuarios: { mod: vUsuarios, perm: "usuarios", titulo: "Usuarios", icono: "usuarios", menu: true, grupo: "Configuración" },
   ajustes: { mod: vAjustes, perm: "ajustes", titulo: "Ajustes", icono: "ajustes", menu: true, grupo: "Configuración" },
+  mesa: { mod: vMesa, perm: "mesa", titulo: "Mesa" },
 };
-// Barra de abajo en el celular: estas primero; si hay más de 5, el resto va en "Más"
-const PRIORIDAD_INFERIOR = ["salon", "cocina", "caja", "reservas", "productos"];
+
 
 const appEl = document.getElementById("app");
 let unsubs = [];
@@ -263,7 +265,7 @@ function renderShell() {
   let grupo = null;
   const lateral = rutas.map((x) => { const g = x[1].grupo || ""; const sep = g !== grupo && g ? `<small class="nav-grupo">${g}</small>` : ""; grupo = g; return sep + link(x); }).join("");
   // Celular: hasta 5 lugares; si no entran, 4 + "Más"
-  const ordenInf = [...rutas].sort((a, b) => ((PRIORIDAD_INFERIOR.indexOf(a[0]) + 1) || 99) - ((PRIORIDAD_INFERIOR.indexOf(b[0]) + 1) || 99));
+  const ordenInf = rutas;
   const visiblesInf = ordenInf.length > 5 ? ordenInf.slice(0, 4) : ordenInf;
   masRutas = ordenInf.length > 5 ? ordenInf.slice(4).map(([k]) => k) : [];
   const inferior = visiblesInf.map(link).join("") + (masRutas.length ? `<button type="button" class="nav-mas" data-act="mas">${icon("menu")}<span>Más</span></button>` : "");
@@ -297,7 +299,8 @@ function menuMas() {
   const m = modal({
     titulo: "Más",
     clase: "modal-chico hoja-mas",
-    cuerpo: `<nav class="mas-grilla">${masRutas.map((k) => `<a href="#/${k}" data-ruta="${k}" class="${actual?.key === k ? "activo" : ""}">${icon(RUTAS[k].icono)}<span>${RUTAS[k].titulo}</span></a>`).join("")}</nav>`,
+    cuerpo: [...new Set(masRutas.map((k) => RUTAS[k].grupo))].map((g) => `<h4 class="mas-grupo">${esc(g)}</h4>
+      <nav class="mas-grilla">${masRutas.filter((k) => RUTAS[k].grupo === g).map((k) => `<a href="#/${k}" data-ruta="${k}" class="${actual?.key === k ? "activo" : ""}">${icon(RUTAS[k].icono)}<span>${RUTAS[k].titulo}</span></a>`).join("")}</nav>`).join(""),
   });
   m.el.addEventListener("click", (e) => { if (e.target.closest("a")) m.cerrar(); });
 }
@@ -334,7 +337,10 @@ function actualizarBarra() {
 }
 
 // ── Navegación ──
+// Al abrir: la pantalla elegida para este dispositivo (Ajustes), si el rol la puede ver
 function rutaInicio() {
+  const elegida = dispositivo().inicio;
+  if (elegida && RUTAS[elegida] && puede(RUTAS[elegida].perm)) return elegida;
   return S.rol === "cocina" ? "cocina" : "salon";
 }
 function navegar() {

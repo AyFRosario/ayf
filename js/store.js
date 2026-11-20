@@ -158,6 +158,9 @@ const DISP_DEF = {
   impresora: { modo: "sistema", ancho: 80, cortar: true, sinAcentos: false, alEnviar: false, btNombre: "" },
   cocina: { sector: "cocina", auto: false, sonido: true },
 };
+// Pantallas que se pueden elegir para abrir la app en cada dispositivo
+export const PANTALLAS_INICIO = [["salon", "Salón"], ["caja", "Caja"], ["reservas", "Reservas"], ["cocina", "Cocina y barra"], ["productos", "Productos"]];
+
 export function dispositivo() {
   let d = null;
   try { d = JSON.parse(localStorage.getItem(DISP_KEY)); } catch {}
