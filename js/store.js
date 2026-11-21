@@ -42,19 +42,23 @@ export function emit(clave) {
   subs.forEach((fn) => { try { fn(clave); } catch (e) { console.error(e); } });
 }
 
-export const ROLES = { dueno: "Dueño", encargado: "Encargado", mozo: "Mozo", cocina: "Cocina" };
+export const ROLES = { admin: "Administrador", dueno: "Dueño", encargado: "Encargado", mozo: "Mozo", cocina: "Cocina" };
+// El Administrador (quien desarrolla y mantiene el sistema) no aparece en Usuarios ni en el respaldo para los demás
+export const visibleParaMi = (u) => u?.rol !== "admin" || S.rol === "admin";
+export const rolesAsignables = () => Object.entries(ROLES).filter(([k]) => k !== "admin" || S.rol === "admin");
 export const MEDIOS = { efectivo: "Efectivo", mp: "Mercado Pago", debito: "Débito", credito: "Crédito", transferencia: "Transferencia", cuenta: "Cuenta corriente" };
 export const SECTORES = { cocina: "Cocina", barra: "Barra", ninguno: "Lo sirve el mozo" };
 export const ESTADOS_ITEM = { nuevo: "Sin enviar", pendiente: "Pendiente", preparando: "En preparación", listo: "Listo", entregado: "Entregado", anulado: "Anulado" };
 
 const PERMISOS = {
+  admin: ["salon", "mesa", "cocina", "caja", "reportes", "productos", "reservas", "compras", "clientes", "recordatorios", "usuarios", "ajustes", "ajustesNegocio", "anular"],
   dueno: ["salon", "mesa", "cocina", "caja", "reportes", "productos", "reservas", "compras", "clientes", "recordatorios", "usuarios", "ajustes", "ajustesNegocio", "anular"],
   encargado: ["salon", "mesa", "cocina", "caja", "reportes", "productos", "reservas", "compras", "clientes", "recordatorios", "ajustes", "ajustesNegocio", "anular"],
   mozo: ["salon", "mesa", "reservas", "ajustes"],
   cocina: ["cocina", "ajustes"],
 };
 export function puede(accion) {
-  if (accion === "cobrar") return ["dueno", "encargado"].includes(S.rol) || (S.rol === "mozo" && !!S.config.mozoCobra);
+  if (accion === "cobrar") return ["admin", "dueno", "encargado"].includes(S.rol) || (S.rol === "mozo" && !!S.config.mozoCobra);
   return (PERMISOS[S.rol] || []).includes(accion);
 }
 

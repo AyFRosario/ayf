@@ -1,11 +1,12 @@
 // ============================================================
-//  A&F · Usuarios y roles (solo el dueño)
+//  A&F · Usuarios y roles (dueño y administrador)
 // ============================================================
-import { S, ROLES, log } from "../store.js";
+import { S, ROLES, log, visibleParaMi, rolesAsignables } from "../store.js";
 import { db, auth, MODO } from "../db.js";
 import { esc, icon, modal, toast, iniciales } from "../util.js";
 
 const DESCRIPCION = {
+  admin: "Todo, y no aparece en esta lista para los demás. Solo otro administrador puede cambiarlo.",
   dueno: "Todo, incluido usuarios.",
   encargado: "Salón, caja, cobros, productos y anulaciones.",
   mozo: "Abre mesas, carga y envía pedidos. Cobra solo si está habilitado en Ajustes.",
@@ -18,12 +19,12 @@ export function mount(root) {
       <div class="barra-acciones"><p class="ayuda">Cada persona entra con su usuario: así queda registrado quién abrió, cargó, cobró o anuló.</p>
         <button class="btn btn-pri" data-act="nuevo">${icon("mas")} Usuario</button></div>
       <div id="uLista" class="lista"></div>
-      <div class="tarjeta roles">${Object.entries(ROLES).map(([k, v]) => `<p><b>${v}:</b> ${DESCRIPCION[k]}</p>`).join("")}</div>
+      <div class="tarjeta roles">${rolesAsignables().map(([k, v]) => `<p><b>${v}:</b> ${DESCRIPCION[k]}</p>`).join("")}</div>
     </div>`;
 
   function render() {
-    const orden = ["dueno", "encargado", "mozo", "cocina"];
-    const us = [...S.usuarios].sort((a, b) => orden.indexOf(a.rol) - orden.indexOf(b.rol) || String(a.nombre).localeCompare(String(b.nombre)));
+    const orden = ["admin", "dueno", "encargado", "mozo", "cocina"];
+    const us = S.usuarios.filter(visibleParaMi).sort((a, b) => orden.indexOf(a.rol) - orden.indexOf(b.rol) || String(a.nombre).localeCompare(String(b.nombre)));
     root.querySelector("#uLista").innerHTML = us.map((u) => `
       <button class="fila-lista boton ${u.activo === false ? "inactivo" : ""}" data-uid="${esc(u.id)}">
         <span class="avatar">${esc(iniciales(u.nombre))}</span>
@@ -44,7 +45,7 @@ export function mount(root) {
         ${nuevo && MODO !== "demo" ? `
           <label class="campo"><span>Email</span><input class="input" id="uEmail" type="email" required autocomplete="off"></label>
           <label class="campo"><span>Contraseña inicial</span><input class="input" id="uPass" type="text" minlength="6" required autocomplete="off"><small class="ayuda">Mínimo 6 caracteres. Pasásela a la persona.</small></label>` : ""}
-        <label class="campo"><span>Rol</span><select class="input" id="uRol" ${propio ? "disabled" : ""}>${Object.entries(ROLES).map(([k, v]) => `<option value="${k}" ${(u?.rol || "mozo") === k ? "selected" : ""}>${v}</option>`).join("")}</select></label>
+        <label class="campo"><span>Rol</span><select class="input" id="uRol" ${propio ? "disabled" : ""}>${rolesAsignables().map(([k, v]) => `<option value="${k}" ${(u?.rol || "mozo") === k ? "selected" : ""}>${v}</option>`).join("")}</select></label>
         ${!nuevo && !propio ? `<label class="switch"><input type="checkbox" id="uAct" ${u.activo !== false ? "checked" : ""}><span>Activo (puede entrar)</span></label>` : ""}
         <p class="error" id="uErr" hidden></p>
       </form>`,
@@ -87,7 +88,7 @@ export function mount(root) {
   root.addEventListener("click", (e) => {
     if (e.target.closest('[data-act="nuevo"]')) return editar();
     const b = e.target.closest("[data-uid]");
-    if (b) { const u = S.usuarios.find((x) => x.id === b.dataset.uid); if (u) editar(u); }
+    if (b) { const u = S.usuarios.find((x) => x.id === b.dataset.uid); if (u && visibleParaMi(u)) editar(u); }
   });
 
   render();

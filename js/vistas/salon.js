@@ -169,7 +169,8 @@ export function mount(root) {
 
   function abrirMesa(mesa) {
     const mozos = S.usuarios.filter((u) => u.activo !== false && ["mozo", "encargado", "dueno"].includes(u.rol));
-    const elegirMozo = S.rol !== "mozo" && mozos.length > 1;
+    // El administrador no atiende: si abre una mesa, elige a qué mozo queda asignada
+    const elegirMozo = S.rol === "admin" ? mozos.length > 0 : S.rol !== "mozo" && mozos.length > 1;
     const m = modal({
       titulo: `Abrir ${mesa.nombre}`,
       clase: "modal-chico",
@@ -178,7 +179,7 @@ export function mount(root) {
         <div class="campo"><span>Comensales</span>
           <div class="stepper grande"><button type="button" data-d="-1" aria-label="Menos">${icon("menos")}</button><input class="input" id="aCom" inputmode="numeric" value="${mesa.capacidad || 2}"><button type="button" data-d="1" aria-label="Más">${icon("mas")}</button></div>
         </div>
-        ${elegirMozo ? `<label class="campo"><span>Mozo</span><select class="input" id="aMozo">${mozos.map((u) => `<option value="${esc(u.id)}" ${u.id === S.user.uid ? "selected" : ""}>${esc(u.nombre)}</option>`).join("")}</select></label>` : ""}
+        ${elegirMozo ? `<label class="campo"><span>Mozo</span><select class="input" id="aMozo">${mozos.map((u) => `<option value="${esc(u.id)}" ${u.id === (S.rol === "admin" ? (mozos.find((x) => x.rol === "mozo") || mozos[0]).id : S.user.uid) ? "selected" : ""}>${esc(u.nombre)}</option>`).join("")}</select></label>` : ""}
       </form>`,
       pie: `<button type="submit" form="fAbrir" class="btn btn-pri btn-bloque">Abrir mesa</button>`,
     });

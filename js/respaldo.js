@@ -5,7 +5,7 @@
 // del importador, así se puede volver a cargar), insumos, ventas con
 // detalle, cajas, clientes, proveedores, compras, reservas y más.
 // Guarda la fecha del último respaldo para recordarlo al cerrar caja.
-import { S, MEDIOS, ROLES, fmtCantidad, log } from "./store.js";
+import { S, MEDIOS, ROLES, fmtCantidad, log, visibleParaMi } from "./store.js";
 import { db } from "./db.js";
 import { toast } from "./util.js";
 import { cargarXLSX, hojaCartaActual } from "./importar.js";
@@ -76,7 +76,7 @@ export async function descargarRespaldo(boton) {
     hoja("Reservas", [["Día", "Hora", "Nombre", "Personas", "Teléfono", "Estado", "Nota"],
       ...reservas.map((x) => [x.fecha, x.hora, x.nombre, x.personas, x.telefono || "", x.estado, x.nota || ""])], [12, 7, 24, 9, 16, 12, 30]);
     hoja("Recordatorios", [["Qué", "Vence", "Cada (meses)", "Nota"], ...recordatorios.map((x) => [x.titulo, x.vence, x.cadaMeses || "", x.nota || ""])], [36, 12, 12, 30]);
-    hoja("Usuarios", [["Nombre", "Rol", "Activo"], ...S.usuarios.map((u) => [u.nombre, ROLES[u.rol] || u.rol, u.activo === false ? "No" : "Sí"])], [24, 14, 8]);
+    hoja("Usuarios", [["Nombre", "Rol", "Activo"], ...S.usuarios.filter(visibleParaMi).map((u) => [u.nombre, ROLES[u.rol] || u.rol, u.activo === false ? "No" : "Sí"])], [24, 14, 8]);
     hoja("Registro", [["Fecha", "Usuario", "Tipo", "Detalle"], ...logs.map((l) => [fechaHora(l.ts), l.usuario || "", l.tipo || "", l.desc || ""])], [17, 14, 12, 70]);
 
     XLSX.writeFile(wb, `respaldo-${(S.config.nombre || "AyF").replace(/[^\w-]+/g, "")}-${sello()}.xlsx`);

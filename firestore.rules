@@ -7,7 +7,9 @@ rules_version = '2';
 // menús: aunque alguien abra la consola del navegador, no puede
 // hacer lo que su rol no permite.
 //
-// Roles: dueno · encargado · mozo · cocina
+// Roles: admin · dueno · encargado · mozo · cocina
+// admin = quien desarrolla y mantiene el sistema. Tiene los mismos
+// permisos que el dueño, y el dueño no puede crearlo, editarlo ni borrarlo.
 // Publicar: Consola de Firebase → Firestore → Reglas → pegar → Publicar
 
 service cloud.firestore {
@@ -18,8 +20,10 @@ service cloud.firestore {
     function perfil(nid) { return get(rutaUsuario(nid)).data; }
     function miembro(nid) { return autenticado() && exists(rutaUsuario(nid)) && perfil(nid).activo == true; }
     function rol(nid, roles) { return miembro(nid) && perfil(nid).rol in roles; }
-    function gestion(nid) { return rol(nid, ['dueno', 'encargado']); }
-    function personal(nid) { return rol(nid, ['dueno', 'encargado', 'mozo']); }
+    function admin(nid) { return rol(nid, ['admin']); }
+    function duenos(nid) { return rol(nid, ['admin', 'dueno']); }
+    function gestion(nid) { return rol(nid, ['admin', 'dueno', 'encargado']); }
+    function personal(nid) { return rol(nid, ['admin', 'dueno', 'encargado', 'mozo']); }
     function soloCambia(campos) { return request.resource.data.diff(resource.data).affectedKeys().hasOnly(campos); }
     function mozoCobra(nid) {
       let c = /databases/$(database)/documents/negocios/$(nid)/config/general;
@@ -31,7 +35,7 @@ service cloud.firestore {
       allow read: if autenticado();
       // El primero que entra crea el negocio y queda como dueño
       allow create: if autenticado() && request.resource.data.owner == request.auth.uid;
-      allow update: if rol(nid, ['dueno']) && request.resource.data.owner == resource.data.owner;
+      allow update: if duenos(nid) && request.resource.data.owner == resource.data.owner;
 
       match /usuarios/{uid} {
         allow read: if miembro(nid) || (autenticado() && uid == request.auth.uid);
@@ -39,8 +43,12 @@ service cloud.firestore {
         allow create: if autenticado() && uid == request.auth.uid
           && request.resource.data.rol == 'dueno'
           && getAfter(/databases/$(database)/documents/negocios/$(nid)).data.owner == request.auth.uid;
-        allow create, delete: if rol(nid, ['dueno']);
-        allow update: if rol(nid, ['dueno']) || (uid == request.auth.uid && miembro(nid) && soloCambia(['nombre']));
+        // El dueño maneja a todos menos al administrador; el administrador, a todos
+        allow create: if admin(nid) || (rol(nid, ['dueno']) && request.resource.data.rol != 'admin');
+        allow delete: if admin(nid) || (rol(nid, ['dueno']) && resource.data.rol != 'admin');
+        allow update: if admin(nid)
+          || (rol(nid, ['dueno']) && resource.data.rol != 'admin' && request.resource.data.rol != 'admin')
+          || (uid == request.auth.uid && miembro(nid) && soloCambia(['nombre']));
       }
 
       match /config/{doc} {

@@ -1,4 +1,4 @@
-# A&F — versión 0.9
+# A&F — versión 0.9.1
 
 PWA para celular, tablet y PC. HTML, CSS y JS sin compilar, igual que el resto de JPSoft. Se publica en GitHub Pages y usa Firebase (Firestore + Auth) con caché sin conexión.
 
@@ -16,7 +16,7 @@ PWA para celular, tablet y PC. HTML, CSS y JS sin compilar, igual que el resto d
 | **Compras** | Encargado, dueño | Compras que suman stock (insumos y bebidas) y actualizan el costo. Proveedores con lo que se les debe. |
 | **Clientes** | Encargado, dueño | Cuenta corriente: cobrar "a cuenta", registrar pagos y mandar el saldo por WhatsApp. |
 | **Vencimientos** | Encargado, dueño | Matafuegos, campana, plagas, habilitación, seguro… con aviso en el salón. |
-| **Usuarios** | Dueño | Cuatro roles: dueño, encargado, mozo y cocina. |
+| **Usuarios** | Dueño | Cuatro roles: dueño, encargado, mozo y cocina. Además está el **Administrador** (quien mantiene el sistema), que no aparece en la lista. |
 | **Ajustes** | Todos | Impresora de cada dispositivo. Datos del negocio, mesas y respaldo completo en Excel (solo encargado y dueño). |
 
 En el celular, la barra de abajo muestra hasta cuatro pantallas y el botón **Más** con el resto. Al mozo le entran todas, así que no lo ve.
@@ -42,6 +42,7 @@ Con `?demo` al final de la dirección se fuerza el modo demo aunque Firebase est
 7. En **Authentication → Usuarios → Agregar usuario**, creá tu propia cuenta (la del dueño).
 8. Entrá a la app con esa cuenta. Como el negocio todavía no existe, te ofrece **Crear negocio** y quedás como dueño. Hacelo apenas publicás: el primero que entra queda como dueño.
 9. Desde **Usuarios** creá a los mozos, al encargado y a la cuenta de cocina. Cada uno entra con su email y su contraseña.
+10. **Tu usuario como Administrador:** en **Firestore → Datos → negocios → af → usuarios →** tu documento (el que tiene tu email), cambiá el campo `rol` de `dueno` a `admin`. Después creá desde la app el usuario del dueño real del bar. (Antes tienen que estar publicadas las reglas de la versión 0.9.1.)
 
 Todo queda guardado en `negocios/af/…`. Si después A&F se vende a otro bar, se cambia `negocioId` y los datos no se mezclan.
 
@@ -271,6 +272,15 @@ El **día comercial empieza a las 6 de la mañana**: lo que se cobra a las 2 de 
   - registrar propinas sí o no (si se apaga, desaparece del cobro);
   - el porcentaje sugerido;
   - si la precuenta impresa muestra la propina sugerida (solo en mesas).
+
+## 3 undecies. Administrador oculto (v0.9.1)
+
+- **Para qué:** es el rol de quien desarrolla y mantiene el sistema. Tiene los mismos permisos que el dueño.
+- **Oculto:** no aparece en **Usuarios** ni en la hoja "Usuarios" del respaldo, salvo para otro administrador. Tampoco se ofrece en la lista de roles al crear o editar un usuario.
+- **Protegido:** las reglas de Firebase no dejan que el dueño lo cree, lo edite, lo desactive ni lo borre. El dueño tampoco puede pasarse a sí mismo a administrador.
+- **No atiende:** si abre una mesa, elige a qué mozo queda asignada, así no aparece en los reportes por mozo.
+- **Lo que sí queda a la vista:** lo que hace con su usuario queda firmado con su nombre como cualquier otro (quién cobró, quién abrió la caja, el registro del respaldo). Así siempre se sabe quién hizo cada cambio.
+- **En el demo:** se entra con `?demo&admin`.
 
 ## 4. Escáner de códigos
 

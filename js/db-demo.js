@@ -186,6 +186,7 @@ function semilla() {
       },
     },
     usuarios: {
+      u_admin: { nombre: "Joaquín", email: "admin@demo", rol: "admin", activo: true },
       u_dueno: { nombre: "Dueño", email: "dueno@demo", rol: "dueno", activo: true },
       u_laura: { nombre: "Laura", email: "laura@demo", rol: "encargado", activo: true },
       u_juan: { nombre: "Juan", email: "juan@demo", rol: "mozo", activo: true },

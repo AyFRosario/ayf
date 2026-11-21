@@ -9,7 +9,7 @@ import { $, esc, icon, toast, modal, confirmar, iniciales, fmt, normalizar } fro
 import { reconectarImpresora } from "./print.js";
 import { iniciarPublicacion, detenerPublicacion } from "./publicar.js";
 
-const VERSION = "0.9.0";
+const VERSION = "0.9.1";
 import * as vSalon from "./vistas/salon.js";
 import * as vMesa from "./vistas/mesa.js";
 import * as vCocina from "./vistas/cocina.js";
@@ -180,7 +180,8 @@ function iniciarApp() {
 // ── Pantallas de acceso ──
 function pantallaLogin() {
   if (MODO === "demo") {
-    const us = auth.demoUsuarios();
+    // El administrador no se lista en el demo (se entra con ?demo&admin)
+    const us = auth.demoUsuarios().filter((u) => u.rol !== "admin" || new URLSearchParams(location.search).has("admin"));
     pantalla(`
       <h1>Ingresar</h1>
       <p class="ayuda centro"><b>Modo demo.</b> Los datos quedan solo en este navegador. Elegí con qué usuario entrar. Abrí otra pestaña con otro usuario (por ejemplo, Cocina) para ver el circuito completo.</p>
