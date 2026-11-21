@@ -98,7 +98,6 @@ function render() {
     <footer class="pie">
       ${c.horario ? `<div class="horario">${RELOJ}<span>${esc(c.horario)}</span></div>` : ""}
       ${contactoHTML(c)}
-      <p class="nota">Precios en pesos argentinos.</p>
       ${firmaHTML()}
     </footer>`;
   document.getElementById("btnRes")?.addEventListener("click", abrirReserva);

@@ -9,7 +9,7 @@ import { $, esc, icon, toast, modal, confirmar, iniciales, fmt, normalizar } fro
 import { reconectarImpresora } from "./print.js";
 import { iniciarPublicacion, detenerPublicacion } from "./publicar.js";
 
-const VERSION = "0.7.3";
+const VERSION = "0.7.4";
 import * as vSalon from "./vistas/salon.js";
 import * as vMesa from "./vistas/mesa.js";
 import * as vCocina from "./vistas/cocina.js";
