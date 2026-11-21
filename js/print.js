@@ -25,14 +25,22 @@ function encabezado(titulo) {
   return [T(c.nombre || "A&F", { al: "c", neg: true, grande: true }), c.lema ? T(c.lema, { al: "c" }) : null, titulo ? T(titulo, { al: "c", neg: true }) : null, L()].filter(Boolean);
 }
 
+// Pedidos sin mesa: tipo y hora, para que se vean bien en el papel
+const TIPO_TICKET = { llevar: "PARA LLEVAR", delivery: "DELIVERY", mostrador: "MOSTRADOR" };
+const HORA_TICKET = { llevar: "Retira", delivery: "Entrega" };
+
 // Comanda para cocina/barra. items: [{cant, desc, nota, sector}]
-export function ticketComanda({ mesa, mozo, comensales, items, ts = Date.now(), reimpresion = false }) {
+export function ticketComanda({ mesa, mozo, comensales, items, ts = Date.now(), reimpresion = false, pedido = null }) {
+  const tipo = pedido?.tipo || items[0]?.tipo;
+  const hh = pedido?.hora ?? items[0]?.hora;
   const porSector = {};
   for (const i of items) (porSector[i.sector || "cocina"] ||= []).push(i);
   const r = [];
   for (const [sector, its] of Object.entries(porSector)) {
     if (r.length) r.push(E(1), L());
     r.push(T(sector === "barra" ? "BARRA" : sector === "cocina" ? "COCINA" : "MOZO", { al: "c", neg: true }));
+    if (TIPO_TICKET[tipo]) r.push(T(`*** ${TIPO_TICKET[tipo]} ***`, { al: "c", neg: true, grande: true }));
+    if (hh && HORA_TICKET[tipo]) r.push(T(`${HORA_TICKET[tipo]} ${hh} h`, { al: "c", neg: true }));
     r.push(T(mesa, { al: "c", grande: true }));
     r.push(T(`${mozo || ""}${comensales ? ` · ${comensales} pers.` : ""} · ${hora(ts)}`, { al: "c" }));
     if (reimpresion) r.push(T("(REIMPRESIÓN)", { al: "c" }));
@@ -55,9 +63,23 @@ function lineasItems(items) {
   }
   return r;
 }
-export function ticketPrecuenta({ mesa, mozo, items, total }) {
+// Datos del cliente para retirar o para el delivery
+function lineasCliente(tipo, cli = {}, hh = "") {
+  if (!TIPO_TICKET[tipo] || tipo === "mostrador") return [];
+  const r = [T(`*** ${TIPO_TICKET[tipo]} ***`, { al: "c", neg: true })];
+  if (cli.nombre) r.push(T(cli.nombre, { neg: true, grande: true }));
+  if (cli.telefono) r.push(T(`Tel: ${cli.telefono}`));
+  if (cli.direccion) r.push(T(`Dir: ${cli.direccion}`, { neg: true }));
+  if (hh) r.push(T(`${HORA_TICKET[tipo]}: ${hh} h`));
+  if (cli.nota) r.push(T(`Nota: ${cli.nota}`));
+  r.push(L());
+  return r;
+}
+
+export function ticketPrecuenta({ mesa, mozo, items, total, pedido = null }) {
   return [
-    ...encabezado("PRECUENTA"),
+    ...encabezado(pedido?.tipo === "delivery" ? "PEDIDO" : "PRECUENTA"),
+    ...lineasCliente(pedido?.tipo, pedido?.cliente, pedido?.hora),
     F(mesa, hora(Date.now())), T(`Atendió: ${mozo || ""}`), L(),
     ...lineasItems(items), L(),
     F("TOTAL", fmt(total), { neg: true, grande: true }), E(1),
@@ -67,6 +89,7 @@ export function ticketPrecuenta({ mesa, mozo, items, total }) {
 export function ticketVenta(v) {
   const r = [
     ...encabezado(""),
+    ...lineasCliente(v.tipo, v.cliente, v.hora),
     F(`Nº ${v.nro}`, fechaHora(v.ts)), F(v.mesaNombre || "", `Atendió: ${v.mozo || ""}`), L(),
     ...lineasItems(v.items), L(),
     F("Subtotal", fmt(v.subtotal)),

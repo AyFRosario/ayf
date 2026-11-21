@@ -50,6 +50,7 @@ export function mount(root, { param } = {}) {
       ${lista.map((p) => {
         const bajo = p.controlStock && (Number(p.stock) || 0) <= (Number(p.stockMin) || 0);
         return `<button class="fila-prod ${p.activo === false ? "inactivo" : ""}" data-editar="${esc(p.id)}">
+          <span class="fp-fav ${p.favorito ? "si" : ""}" data-fav="${esc(p.id)}" role="button" aria-label="${p.favorito ? "Quitar de favoritos" : "Marcar como favorito"}" title="Favorito">${icon("estrella")}</span>
           <span class="fp-nom"><b>${esc(p.nombre)}</b><small>${esc(p.categoria || "Otros")} · ${esc(SECTORES[p.sector] || "Cocina")}${p.codigo ? ` · ${icon("scan", "mini")} ${esc(p.codigo)}` : ""}${p.activo === false ? " · desactivado" : ""}</small></span>
           <span class="fp-stock ${bajo ? "bajo" : ""}">${p.controlStock ? `${fmtCant(p.stock)} u.` : ""}</span>
           <b class="fp-precio">${fmt(p.precio)}</b>
@@ -102,6 +103,7 @@ export function mount(root, { param } = {}) {
         </div>
         <label class="switch"><input type="checkbox" id="eAct" ${p.activo !== false ? "checked" : ""}><span>Activo (lo pueden cargar los mozos)</span></label>
         <label class="switch"><input type="checkbox" id="eCarta" ${p.enCarta !== false ? "checked" : ""}><span>Mostrar en la carta QR de los clientes</span></label>
+        <label class="switch"><input type="checkbox" id="eFav" ${p.favorito ? "checked" : ""}><span>Favorito: aparece primero en la venta rápida y en la comanda</span></label>
         <div id="eReceta">${receta.html}</div>
       </form>`,
       pie: `${nuevo ? "" : `<button class="btn btn-peligro" data-act="borrar">${icon("basura")}</button>`}<button type="submit" form="fProd" class="btn btn-pri">${nuevo ? "Crear" : "Guardar"}</button>`,
@@ -148,6 +150,7 @@ export function mount(root, { param } = {}) {
         stockMin: num($("#eMin").value),
         activo: $("#eAct").checked,
         enCarta: $("#eCarta").checked,
+        favorito: $("#eFav").checked,
         descripcion: $("#eDesc").value.trim(),
         receta: receta.valor(),
       };
@@ -394,6 +397,13 @@ export function mount(root, { param } = {}) {
   root.addEventListener("click", (e) => {
     const f = e.target.closest("[data-filtro]");
     if (f) { filtro = f.dataset.filtro; q = ""; root.querySelector("#pBusq").value = ""; render(); return; }
+    const fav = e.target.closest("[data-fav]");
+    if (fav) {
+      e.stopPropagation();
+      const p = S.productos.find((x) => x.id === fav.dataset.fav);
+      if (p) { db.update("productos", p.id, { favorito: !p.favorito }); toast(p.favorito ? `${p.nombre}: ya no es favorito` : `${p.nombre}: favorito ★`); }
+      return;
+    }
     const ed = e.target.closest("[data-editar]");
     if (ed) { const p = S.productos.find((x) => x.id === ed.dataset.editar); if (p) editar(p); return; }
     const a = e.target.closest("[data-act]");

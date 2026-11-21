@@ -7,6 +7,7 @@ import { S, dispositivo, guardarDispositivo } from "../store.js";
 import { db } from "../db.js";
 import { esc, hora, minutos, icon, beep, toast } from "../util.js";
 import { imprimir, ticketComanda, btConectada, usbConectada, conectarBluetooth, conectarUSB } from "../print.js";
+import { TIPOS_PEDIDO } from "../pedidos.js";
 
 const SIG = { pendiente: "preparando", preparando: "listo", listo: "entregado" };
 const BOTON = { pendiente: "Empezar", preparando: "Listo", listo: "Entregado" };
@@ -62,7 +63,7 @@ export function mount(root) {
       if (!SIG[i.estado] || i.sector === "ninguno") continue;
       if (sector !== "todo" && i.sector !== sector) continue;
       const k = `${i.envioId || i.comandaId}|${i.sector}`;
-      if (!g.has(k)) g.set(k, { clave: k, items: [], mesa: i.mesaNombre, mozo: i.mozo, enviado: i.enviado || i.ts, sector: i.sector, comandaId: i.comandaId });
+      if (!g.has(k)) g.set(k, { clave: k, items: [], mesa: i.mesaNombre, mozo: i.mozo, enviado: i.enviado || i.ts, sector: i.sector, comandaId: i.comandaId, tipo: i.tipo, hora: i.hora });
       g.get(k).items.push(i);
     }
     for (const x of g.values()) {
@@ -75,10 +76,12 @@ export function mount(root) {
   function tarjeta(g) {
     const m = minutos(g.enviado);
     const nivel = g.estado === "listo" ? "ok" : m >= 20 ? "rojo" : m >= 10 ? "ambar" : "ok";
-    const comensales = S.comandas.find((c) => c.id === g.comandaId)?.comensales;
-    return `<article class="kds-card nivel-${nivel} ${recientes.has(g.clave) ? "nuevo" : ""}">
+    const tp = TIPOS_PEDIDO[g.tipo];
+    const comensales = tp ? 0 : S.comandas.find((c) => c.id === g.comandaId)?.comensales;
+    return `<article class="kds-card nivel-${nivel} ${recientes.has(g.clave) ? "nuevo" : ""} ${tp ? "pedido" : ""}">
+      ${tp ? `<div class="kds-pedido">${icon(tp.icono)} ${tp.corto.toUpperCase()}${g.hora ? ` · ${esc(g.hora)} h` : ""}</div>` : ""}
       <header>
-        <b>${esc(g.mesa)}</b>
+        <b>${esc(tp && g.tipo !== "mostrador" ? g.mesa.replace(/^[^·]+·\s*/, "") : g.mesa)}</b>
         <span class="kds-meta">${esc(g.mozo || "")}${comensales ? ` · ${comensales} pers.` : ""}${sector === "todo" ? ` · ${g.sector === "barra" ? "Barra" : "Cocina"}` : ""}</span>
         <span class="kds-tiempo">${icon("reloj")} ${m} min</span>
       </header>

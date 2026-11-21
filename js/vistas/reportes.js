@@ -61,18 +61,26 @@ async function rangos(tipo, desdeTxt, hastaTxt) {
   return { desde, hasta, prev: [desde - (hasta - desde), desde], vs: "el período anterior de igual largo" };
 }
 
+const TIPOS_VENTA = { mesa: "Mesas", llevar: "Para llevar", delivery: "Delivery", mostrador: "Venta rápida" };
+
 function analizar(ventas) {
   const ok = ventas.filter((v) => v.estado !== "anulada");
   const r = {
     total: 0, cant: ok.length, comensales: 0, descuentos: 0,
     anuladas: ventas.length - ok.length, montoAnulado: 0,
     porMedio: {}, porDia: new Map(), porHora: new Map(), porMozo: new Map(), productos: new Map(), porCat: new Map(),
+    porTipo: new Map(), totalMesas: 0,
   };
   for (const v of ventas) if (v.estado === "anulada") r.montoAnulado += v.total || 0;
   const catDe = new Map(S.productos.map((p) => [p.id, p.categoria || "Otros"]));
   for (const v of ok) {
     r.total += v.total || 0;
-    r.comensales += Number(v.comensales) || 0;
+    const tipo = TIPOS_VENTA[v.tipo] ? v.tipo : "mesa";
+    const pt = r.porTipo.get(tipo) || { total: 0, cant: 0 };
+    pt.total += v.total || 0; pt.cant++;
+    r.porTipo.set(tipo, pt);
+    // El gasto por persona sale solo de las mesas (un pedido no tiene comensales)
+    if (tipo === "mesa") { r.comensales += Number(v.comensales) || 0; r.totalMesas += v.total || 0; }
     r.descuentos += v.descuento?.monto || 0;
     for (const p of v.pagos || []) r.porMedio[p.medio] = (r.porMedio[p.medio] || 0) + (p.monto || 0);
     const d = diaComercial(v.ts);
@@ -94,7 +102,7 @@ function analizar(ventas) {
     }
   }
   r.promedio = r.cant ? r.total / r.cant : 0;
-  r.porPersona = r.comensales ? r.total / r.comensales : 0;
+  r.porPersona = r.comensales ? r.totalMesas / r.comensales : 0;
   return r;
 }
 
@@ -192,6 +200,7 @@ export function mount(root) {
       return { v: c, et: `${h}`, corto: String(c), tip: `${h}:00 a ${h}:59 · ${c} mesa${c === 1 ? "" : "s"}` };
     });
     const medios = Object.entries(r.porMedio).sort((a, b) => b[1] - a[1]).map(([m, v]) => ({ et: MEDIOS[m] || m, v, val: fmt(v), tip: `${MEDIOS[m] || m}: ${r.total ? Math.round((v / r.total) * 100) : 0}% de lo vendido` }));
+    const tipos = [...r.porTipo.entries()].sort((a, b) => b[1].total - a[1].total).map(([k, x]) => ({ et: TIPOS_VENTA[k], v: x.total, val: fmt(x.total), tip: `${TIPOS_VENTA[k]}: ${fmtNum(x.cant)} venta${x.cant === 1 ? "" : "s"} · ${r.total ? Math.round((x.total / r.total) * 100) : 0}% de lo vendido` }));
     const cats = [...r.porCat.entries()].sort((a, b) => b[1] - a[1]).map(([c, v]) => ({ et: c, v, val: fmt(v), tip: `${c}: ${fmt(v)}` }));
     const prods = [...r.productos.values()].sort((a, b) => b.cant - a.cant || b.importe - a.importe);
     const maxCant = Math.max(1, ...prods.map((x) => x.cant));
@@ -201,14 +210,15 @@ export function mount(root) {
       <p class="ayuda rep-rango-txt">${etiquetaDia(rg.desde)} ${new Date(rg.desde).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit", hourCycle: "h23" })} → ${etiquetaDia(rg.hasta - 1)} · comparado con ${rg.vs}</p>
       <div class="kpis">
         <div class="kpi"><small>Vendido</small><b>${fmt(r.total)}</b>${delta(r.total, p.total)}</div>
-        <div class="kpi"><small>Mesas cobradas</small><b>${fmtNum(r.cant)}</b>${delta(r.cant, p.cant)}</div>
+        <div class="kpi"><small>Ventas</small><b>${fmtNum(r.cant)}</b>${delta(r.cant, p.cant)}</div>
         <div class="kpi"><small>Ticket promedio</small><b>${fmt(r.promedio)}</b>${delta(r.promedio, p.promedio)}</div>
         <div class="kpi"><small>Gasto por persona</small><b>${fmt(r.porPersona)}</b><span>${fmtNum(r.comensales)} comensales</span></div>
       </div>
       ${r.descuentos || r.anuladas ? `<p class="ayuda">Descuentos: ${fmt(r.descuentos)}${r.anuladas ? ` · Ventas anuladas: ${r.anuladas} (${fmt(r.montoAnulado)}), no se suman` : ""}</p>` : ""}
       <div class="rep-grid">
         ${datosDias.length > 1 ? `<section class="tarjeta"><h3>Ventas por día</h3>${columnas(datosDias, { etiquetaCada: datosDias.length > 16 ? 3 : 1 })}</section>` : ""}
-        ${datosHoras.length ? `<section class="tarjeta"><h3>¿A qué hora llegan?</h3><p class="ayuda">Mesas según la hora en que se abrieron.</p>${columnas(datosHoras, { alto: 120 })}</section>` : ""}
+        ${datosHoras.length ? `<section class="tarjeta"><h3>¿A qué hora llegan?</h3><p class="ayuda">Mesas y pedidos según la hora en que se abrieron.</p>${columnas(datosHoras, { alto: 120 })}</section>` : ""}
+        ${tipos.length > 1 ? `<section class="tarjeta"><h3>Mesas, para llevar y delivery</h3>${barras(tipos)}</section>` : ""}
         <section class="tarjeta"><h3>Medios de pago</h3>${barras(medios)}</section>
         <section class="tarjeta"><h3>Por categoría</h3>${barras(cats)}</section>
       </div>
@@ -225,7 +235,7 @@ export function mount(root) {
       <section class="tarjeta">
         <h3>Por mozo</h3>
         <div class="tabla-rep mozos">
-          <div class="tr cab"><span>Mozo</span><span>Mesas</span><span>Comensales</span><span>Vendido</span><span>Ticket prom.</span></div>
+          <div class="tr cab"><span>Mozo</span><span>Ventas</span><span>Comensales</span><span>Vendido</span><span>Ticket prom.</span></div>
           ${mozos.map(([n, m]) => `<div class="tr"><span>${esc(n)}</span><span>${fmtNum(m.mesas)}</span><span>${fmtNum(m.comensales)}</span><span>${fmt(m.total)}</span><span>${fmt(m.total / m.mesas)}</span></div>`).join("")}
         </div>
       </section>`;
@@ -241,15 +251,16 @@ export function mount(root) {
     const hoja = (filas, anchos) => { const ws = XLSX.utils.aoa_to_sheet(filas); ws["!cols"] = anchos.map((w) => ({ wch: w })); return ws; };
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, hoja([
-      ["Período", `${fecha(rg.desde)} al ${fecha(rg.hasta - 1)}`], ["Vendido", r.total], ["Mesas cobradas", r.cant], ["Ticket promedio", Math.round(r.promedio)],
+      ["Período", `${fecha(rg.desde)} al ${fecha(rg.hasta - 1)}`], ["Vendido", r.total], ["Ventas", r.cant], ["Ticket promedio", Math.round(r.promedio)],
       ["Comensales", r.comensales], ["Gasto por persona", Math.round(r.porPersona)], ["Descuentos", r.descuentos], ["Ventas anuladas", r.anuladas], ["Monto anulado", r.montoAnulado],
       [], ["Medio de pago", "Monto"], ...Object.entries(r.porMedio).map(([m, v]) => [MEDIOS[m] || m, v]),
+      [], ["Tipo de venta", "Ventas", "Monto"], ...[...r.porTipo.entries()].map(([k, x]) => [TIPOS_VENTA[k], x.cant, x.total]),
     ], [22, 22]), "Resumen");
     XLSX.utils.book_append_sheet(wb, hoja([
-      ["Día comercial", "Hora", "Nº", "Mesa", "Mozo", "Comensales", "Subtotal", "Descuento", "Total", "Medios de pago", "Estado"],
-      ...ventas.map((v) => [fecha(diaComercial(v.ts)), horaTxt(v.ts), v.nro, v.mesaNombre, v.mozo, v.comensales || "", v.subtotal, v.descuento?.monto || 0, v.total,
+      ["Día comercial", "Hora", "Nº", "Tipo", "Mesa / pedido", "Mozo", "Comensales", "Subtotal", "Descuento", "Total", "Medios de pago", "Estado"],
+      ...ventas.map((v) => [fecha(diaComercial(v.ts)), horaTxt(v.ts), v.nro, TIPOS_VENTA[v.tipo] || "Mesas", v.mesaNombre, v.mozo, v.comensales || "", v.subtotal, v.descuento?.monto || 0, v.total,
         (v.pagos || []).map((x) => `${MEDIOS[x.medio] || x.medio} ${x.monto}`).join(" + "), v.estado === "anulada" ? "Anulada" : "OK"]),
-    ], [13, 7, 10, 12, 12, 11, 11, 11, 11, 34, 9]), "Ventas");
+    ], [13, 7, 10, 12, 18, 12, 11, 11, 11, 11, 34, 9]), "Ventas");
     XLSX.utils.book_append_sheet(wb, hoja([
       ["Producto", "Categoría", "Cantidad", "Importe (sin descuentos)"],
       ...[...r.productos.values()].sort((a, b) => b.cant - a.cant).map((x) => [x.desc, x.cat, x.cant, x.importe]),

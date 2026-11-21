@@ -65,13 +65,14 @@ export function editarCliente(c = null, alCrear) {
     cuerpo: `<form class="form" id="fCli">
       <label class="campo"><span>Nombre</span><input class="input" id="clNom" value="${esc(c.nombre)}" required autofocus></label>
       <label class="campo"><span>Teléfono</span><input class="input" id="clTel" inputmode="tel" value="${esc(c.telefono || "")}"></label>
+      <label class="campo"><span>Dirección (para delivery)</span><input class="input" id="clDir" value="${esc(c.direccion || "")}"></label>
       <label class="campo"><span>Nota</span><input class="input" id="clNota" value="${esc(c.nota || "")}" placeholder="Ej: empleado, cuenta de la casa"></label>
     </form>`,
     pie: `<button type="submit" form="fCli" class="btn btn-pri btn-bloque">${nuevo ? "Crear" : "Guardar"}</button>`,
   });
   m.el.querySelector("#fCli").onsubmit = (e) => {
     e.preventDefault();
-    const datos = { nombre: m.el.querySelector("#clNom").value.trim(), telefono: m.el.querySelector("#clTel").value.trim(), nota: m.el.querySelector("#clNota").value.trim() };
+    const datos = { nombre: m.el.querySelector("#clNom").value.trim(), telefono: m.el.querySelector("#clTel").value.trim(), direccion: m.el.querySelector("#clDir").value.trim(), nota: m.el.querySelector("#clNota").value.trim() };
     if (!datos.nombre) return;
     if (nuevo) {
       const id = db.add("clientes", { ...datos, saldo: 0, creado: Date.now() });

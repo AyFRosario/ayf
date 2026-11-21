@@ -771,3 +771,53 @@ body.offline .barra-sup { box-shadow: inset 0 -3px 0 var(--rojo); }
 /* "Más": grupos */
 .mas-grupo { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--texto3); margin: 4px 0 8px; }
 .mas-grilla + .mas-grupo { margin-top: 16px; }
+
+/* ── v0.8: pedidos para llevar, delivery y venta rápida ── */
+.salon-vistas { width: 100%; max-width: 560px; margin-bottom: 14px; }
+.salon-vistas button { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.salon-vistas .contador:empty { display: none; }
+.ped-botones { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+.ped-botones .btn { flex: 1 1 140px; }
+.pedidos { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+.ped-card { display: flex; flex-direction: column; gap: 4px; text-align: left; padding: 12px 14px; border-radius: var(--radio); border: 1px solid var(--borde); border-left: 4px solid var(--gris); background: var(--sup); cursor: pointer; min-height: 116px; }
+.ped-card.sinEnviar { border-left-color: var(--rojo); }
+.ped-card.preparando { border-left-color: var(--ambar); }
+.ped-card.listo { border-left-color: var(--verde); background: var(--verde-bg); }
+.ped-card.enCamino, .ped-card.entregado { border-left-color: var(--azul); }
+.ped-cab { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; color: var(--texto2); }
+.ped-tipo, .ped-hora { display: inline-flex; align-items: center; gap: 4px; }
+.ped-tipo .ico, .ped-hora .ico { width: 15px; height: 15px; }
+.ped-hora { font-family: var(--fm); font-size: 14px; color: var(--tinta); }
+.ped-hora.suave { font-family: inherit; font-size: 12px; color: var(--texto3); font-weight: 500; }
+.ped-nom { font-size: 17px; line-height: 1.2; }
+.ped-dir { color: var(--texto3); font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ped-pie { display: flex; justify-content: space-between; align-items: center; margin-top: auto; padding-top: 6px; gap: 8px; }
+.ped-total { font-family: var(--fm); font-weight: 500; }
+.ped-estado { font-size: 11.5px; font-weight: 800; padding: 3px 9px; border-radius: 999px; background: var(--papel); color: var(--texto2); white-space: nowrap; }
+.ped-estado.verde { background: var(--verde); color: #fff; }
+.ped-estado.rojo { background: var(--rojo); color: #fff; }
+.ped-estado.ambar { background: var(--ambar-bg); color: var(--ambar); }
+.ped-estado.azul { background: var(--azul-bg); color: var(--azul); }
+.ped-pill { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; vertical-align: 2px; }
+.ped-pill .ico { width: 13px; height: 13px; }
+.btn-icono.wa img { display: block; }
+.pie-botones { display: flex; gap: 8px; }
+.pie-botones .btn { flex: 1; }
+/* Cocina: banda arriba de la tarjeta para los pedidos sin mesa */
+.kds-pedido { display: flex; align-items: center; gap: 6px; padding: 5px 12px; background: #f6f4f0; color: #1e1e1e; font-size: 12.5px; font-weight: 800; letter-spacing: 0.06em; }
+.kds-pedido .ico { width: 15px; height: 15px; }
+.kds-card.pedido { overflow: hidden; }
+/* Favoritos */
+.fila-prod:has(.fp-fav) { grid-template-columns: auto 1fr auto auto; }
+.fp-fav { display: inline-flex; width: 30px; height: 30px; align-items: center; justify-content: center; border-radius: 50%; color: #c9c4ba; margin: -4px -4px -4px -6px; }
+.fp-fav .ico { width: 18px; height: 18px; }
+.fp-fav.si { color: #d99a1e; }
+.fp-fav.si .ico { fill: currentColor; }
+.fp-fav:hover { background: var(--papel); }
+.menu-lista button small { display: block; font-weight: 400; color: var(--texto3); font-size: 12px; margin-top: 2px; white-space: normal; }
+.menu-lista button > span { min-width: 0; }
+
+#pDel { display: grid; gap: 14px; }
+#pDel[hidden] { display: none; }
+.solo-angosto { display: none; }
+@media (max-width: 599px) { .solo-ancho { display: none; } .solo-angosto { display: inline; } }

@@ -9,6 +9,7 @@ import { db, inc } from "../db.js";
 import { esc, fmt, num, icon, modal, toast, beep, pedirTexto } from "../util.js";
 import { imprimir, ticketVenta } from "../print.js";
 import { elegirCliente, opsCuenta } from "./clientes.js";
+import { TIPOS_PEDIDO, nuevaVentaRapida } from "../pedidos.js";
 
 export function abrirCobro(cid) {
   if (!puede("cobrar")) return toast("No tenés permiso para cobrar", "error");
@@ -179,6 +180,7 @@ export function abrirCobro(cid) {
     const venta = {
       nro: nroVenta(j.id), jornadaId: j.id, comandaId: cid,
       mesaId: c.mesaId, mesaNombre: c.mesaNombre, mozo: c.mozo || "", mozoUid: c.mozoUid || "",
+      tipo: c.tipo || "mesa", ...(TIPOS_PEDIDO[c.tipo] ? { cliente: c.cliente || {}, hora: c.hora || "" } : {}),
       comensales: c.comensales || 1, abierta: c.abierta || t, ts: t,
       cobradoPor: S.perfil.nombre, cobradoUid: S.user.uid,
       items: r.lineas, subtotal: r.subtotal,
@@ -191,8 +193,8 @@ export function abrirCobro(cid) {
     const ops = [
       { op: "set", col: "ventas", id: vid, data: venta },
       { op: "update", col: "comandas", id: cid, data: { estado: "cerrada", cerrada: t, ventaId: vid, total: r.total } },
-      { op: "update", col: "mesas", id: c.mesaId, data: { comandaId: null } },
     ];
+    if (c.mesaId) ops.push({ op: "update", col: "mesas", id: c.mesaId, data: { comandaId: null } });
     // Ítems: lo que todavía se está preparando sigue visible en cocina hasta entregarse
     const consumos = [];
     for (const i of itemsDe(cid)) {
@@ -237,8 +239,11 @@ export function cobrado(v) {
     </div>`,
     pie: `<button class="btn" data-a="arca">${icon("externo")} Facturar en ARCA</button>
           <button class="btn" data-a="ticket">${icon("print")} Ticket</button>
-          <button class="btn btn-pri" data-cerrar>Listo</button>`,
+          ${v.tipo === "mostrador" ? `<button class="btn btn-pri" data-a="otra">${icon("flash")} Otra venta rápida</button>` : ""}
+          <button class="btn ${v.tipo === "mostrador" ? "" : "btn-pri"}" data-cerrar>Listo</button>`,
   });
+  const otra = m.el.querySelector('[data-a="otra"]');
+  if (otra) otra.onclick = () => { m.cerrar(); nuevaVentaRapida(); };
   m.el.querySelector('[data-a="ticket"]').onclick = () => imprimir(ticketVenta(v));
   m.el.querySelector('[data-a="arca"]').onclick = () => window.open(CONFIG.arcaUrl, "_blank", "noopener");
 }

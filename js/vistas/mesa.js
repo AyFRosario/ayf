@@ -8,12 +8,15 @@ import { buscar } from "../buscar.js";
 import { abrirEscaner, escucharLectorUSB, precargarEscaner } from "../scanner.js";
 import { imprimir, ticketComanda, ticketPrecuenta } from "../print.js";
 import { abrirCobro } from "./cobro.js";
+import { TIPOS_PEDIDO, esPedido, editarPedido, whatsappPedido, entregarPedido, descartarSiVacia } from "../pedidos.js";
+import { iconoContacto } from "../firma.js";
 
 const NOTAS_RAPIDAS = ["Sin sal", "Sin hielo", "Bien cocido", "Jugoso", "Sin cebolla", "Para compartir", "Sale primero", "Apto celíaco"];
 
 export function mount(root, { param: cid }) {
   let tab = "carta";
   let cat = "Todas";
+  let catElegida = false; // la venta rápida arranca en Favoritos hasta que se elija otra
   let q = "";
   let esperando = Date.now();
 
@@ -49,7 +52,7 @@ export function mount(root, { param: cid }) {
     if (!c) {
       // Recién creada (todavía no llegó) o ya cobrada en otro dispositivo
       if (Date.now() - esperando < 4000) { root.querySelector("#cCab").innerHTML = `<p class="ayuda">Cargando mesa…</p>`; return; }
-      toast("Esta mesa ya está cerrada");
+      toast("Ya está cerrada");
       location.hash = "#/salon";
       return;
     }
@@ -57,7 +60,18 @@ export function mount(root, { param: cid }) {
     const nuevos = its.filter((i) => i.estado === "nuevo");
     const total = totalItems(its);
 
-    root.querySelector("#cCab").innerHTML = `
+    if (!catElegida && c.tipo === "mostrador" && S.productos.some((p) => p.favorito && p.activo !== false)) cat = "★ Favoritos";
+    const tp = TIPOS_PEDIDO[c.tipo];
+    const cli = c.cliente || {};
+    root.querySelector("#cCab").innerHTML = tp ? `
+      <a href="#/salon" class="btn-icono" aria-label="Volver al salón">${icon("atras")}</a>
+      <div class="cc-titulo">
+        <h2><span class="pill ped-pill">${icon(tp.icono)} ${tp.t}</span> ${esc(c.tipo === "mostrador" ? c.mesaNombre : cli.nombre || c.mesaNombre)}</h2>
+        <small>${c.hora ? `${icon("reloj")} ${c.tipo === "delivery" ? "Entrega" : "Retira"} ${esc(c.hora)} · ` : ""}${cli.telefono ? `${esc(cli.telefono)} · ` : ""}${cli.direccion ? `${esc(cli.direccion)} · ` : ""}${cli.nota ? `${esc(cli.nota)} · ` : ""}${durTxt(c.abierta)}</small>
+      </div>
+      ${c.tipo !== "mostrador" ? `<button class="btn-icono" data-act="datos" aria-label="Datos del pedido">${icon("nota")}</button>` : ""}
+      ${cli.telefono ? `<button class="btn-icono wa" data-act="wa" aria-label="WhatsApp al cliente">${iconoContacto("whatsapp", 22)}</button>` : ""}
+      <button class="btn-icono" data-act="menu" aria-label="Más opciones">${icon("puntos")}</button>` : `
       <a href="#/salon" class="btn-icono" aria-label="Volver al salón">${icon("atras")}</a>
       <div class="cc-titulo">
         <h2>${esc(c.mesaNombre)}${c.estado === "cuenta" ? ` <span class="pill ambar">Pidió la cuenta</span>` : ""}</h2>
@@ -74,8 +88,8 @@ export function mount(root, { param: cid }) {
       html += `<h4 class="subtitulo">Por enviar</h4>` + nuevos.map((i) => `
         <div class="item nuevo">
           <div class="item-txt"><b>${esc(i.desc)}</b>${i.nota ? `<span class="nota-item">${esc(i.nota)}</span>` : ""}<small>${fmt(i.precio)} c/u</small></div>
-          <div class="stepper"><button data-act="menos" data-id="${esc(i.id)}" aria-label="Menos">${icon(i.cant > 1 ? "menos" : "basura")}</button><span>${i.cant}</span><button data-act="mas" data-id="${esc(i.id)}" aria-label="Más">${icon("mas")}</button></div>
-          <button class="btn-icono" data-act="nota" data-id="${esc(i.id)}" aria-label="Nota">${icon("nota")}</button>
+          ${i.productoId === "envio" ? `<button class="btn-icono" data-act="menos" data-id="${esc(i.id)}" aria-label="Quitar el envío">${icon("basura")}</button>` : `<div class="stepper"><button data-act="menos" data-id="${esc(i.id)}" aria-label="Menos">${icon(i.cant > 1 ? "menos" : "basura")}</button><span>${i.cant}</span><button data-act="mas" data-id="${esc(i.id)}" aria-label="Más">${icon("mas")}</button></div>
+          <button class="btn-icono" data-act="nota" data-id="${esc(i.id)}" aria-label="Nota">${icon("nota")}</button>`}
         </div>`).join("");
     }
     if (enviados.length) {
@@ -91,7 +105,12 @@ export function mount(root, { param: cid }) {
 
     // Pie
     let botones = "";
-    if (nuevos.length) botones = `<button class="btn btn-pri btn-grande" data-act="enviar">Enviar ${nuevos.reduce((s, i) => s + i.cant, 0)} ${icon("check")}</button>`;
+    const listos = its.filter((i) => i.estado === "listo");
+    // Venta rápida: se cobra directo (lo que va a barra o cocina se envía solo)
+    if (c.tipo === "mostrador" && nuevos.length && puede("cobrar")) botones = `<button class="btn btn-pri btn-grande" data-act="cobrarRapido">${icon("dinero")} Cobrar</button>`;
+    else if (nuevos.length) botones = `<button class="btn btn-pri btn-grande" data-act="enviar">Enviar ${nuevos.reduce((s, i) => s + i.cant, 0)} ${icon("check")}</button>`;
+    else if (esPedido(c) && listos.length) botones = `<button class="btn btn-verde btn-grande" data-act="entregar">${icon(c.tipo === "delivery" ? "moto" : "check")} ${c.tipo === "delivery" ? "Salió" : "Entregado"}</button>${puede("cobrar") ? `<button class="btn btn-pri btn-grande" data-act="cobrar">${icon("dinero")} Cobrar</button>` : ""}`;
+    else if (esPedido(c) && vigentes(its).length) botones = puede("cobrar") ? `<button class="btn btn-pri btn-grande" data-act="cobrar">${icon("dinero")} Cobrar</button>` : "";
     else if (vigentes(its).length && puede("cobrar")) botones = `<button class="btn btn-pri btn-grande" data-act="cobrar">${icon("dinero")} Cobrar</button>`;
     else if (vigentes(its).length) botones = c.estado === "cuenta"
       ? `<button class="btn btn-grande" data-act="cuenta">Quitar "pidió la cuenta"</button>`
@@ -105,12 +124,15 @@ export function mount(root, { param: cid }) {
 
   function renderCarta() {
     const cats = categorias();
-    if (cat !== "Todas" && !cats.includes(cat)) cat = "Todas";
-    root.querySelector("#cCats").innerHTML = ["Todas", ...cats]
+    if (cat !== "Todas" && cat !== "★ Favoritos" && !cats.includes(cat)) cat = "Todas";
+    const hayFav = S.productos.some((p) => p.favorito && p.activo !== false);
+    if (cat === "★ Favoritos" && !hayFav) cat = "Todas";
+    root.querySelector("#cCats").innerHTML = [...(hayFav ? ["★ Favoritos"] : []), "Todas", ...cats]
       .map((x) => `<button class="chip ${x === cat ? "activo" : ""}" data-cat="${esc(x)}">${esc(x)}</button>`)
       .join("");
     let lista = S.productos.filter((p) => p.activo !== false);
     if (q) lista = buscar(lista, q);
+    else if (cat === "★ Favoritos") lista = lista.filter((p) => p.favorito);
     else if (cat !== "Todas") lista = lista.filter((p) => (p.categoria || "Otros") === cat);
     const enPedido = {};
     for (const i of items()) if (i.estado === "nuevo") enPedido[i.productoId] = (enPedido[i.productoId] || 0) + i.cant;
@@ -134,7 +156,7 @@ export function mount(root, { param: cid }) {
     const ex = items().find((i) => i.estado === "nuevo" && i.productoId === p.id && !i.nota);
     if (ex) db.update("items", ex.id, { cant: inc(cant) });
     else db.add("items", {
-      comandaId: cid, mesaId: c.mesaId, mesaNombre: c.mesaNombre,
+      comandaId: cid, mesaId: c.mesaId, mesaNombre: c.mesaNombre, tipo: c.tipo || "mesa", hora: c.hora || "",
       productoId: p.id, desc: p.nombre, precio: Number(p.precio) || 0, cant,
       nota: "", sector: p.sector || "cocina", estado: "nuevo", cerrado: false,
       mozo: c.mozo || S.perfil.nombre, mozoUid: c.mozoUid || S.user.uid, cargadoPor: S.perfil.nombre, ts: Date.now(),
@@ -167,7 +189,7 @@ export function mount(root, { param: cid }) {
     vibrar();
     toast(aCocina.length ? "Pedido enviado" : "Cargado a la mesa");
     if (aCocina.length && dispositivo().impresora.alEnviar) {
-      imprimir(ticketComanda({ mesa: c.mesaNombre, mozo: c.mozo, comensales: c.comensales, items: aCocina, ts: t }), { silencioso: true });
+      imprimir(ticketComanda({ mesa: c.mesaNombre, mozo: c.mozo, comensales: esPedido(c) ? 0 : c.comensales, items: aCocina, ts: t, pedido: esPedido(c) ? c : null }), { silencioso: true });
     }
     tab = "pedido";
     wrap.dataset.tab = tab;
@@ -212,17 +234,20 @@ export function mount(root, { param: cid }) {
     if (!c) return;
     const its = items();
     const hayEnviados = vigentes(its).some((i) => i.estado !== "nuevo");
+    const ped = esPedido(c);
     const m = modal({
       titulo: c.mesaNombre,
       clase: "modal-chico",
       cuerpo: `<div class="menu-lista">
-        <button data-m="precuenta">${icon("print")} Imprimir precuenta</button>
-        <button data-m="cuenta">${icon("recibo")} ${c.estado === "cuenta" ? 'Quitar "pidió la cuenta"' : "Marcar: pidió la cuenta"}</button>
+        ${ped && c.tipo !== "mostrador" ? `<button data-m="datos">${icon("nota")} Datos del pedido</button>` : ""}
+        ${ped && c.cliente?.telefono ? `<button data-m="wa">${iconoContacto("whatsapp", 18)} WhatsApp al cliente</button>` : ""}
+        <button data-m="precuenta">${icon("print")} ${c.tipo === "delivery" ? "Imprimir ticket para el envío" : "Imprimir precuenta"}</button>
+        ${ped ? "" : `<button data-m="cuenta">${icon("recibo")} ${c.estado === "cuenta" ? 'Quitar "pidió la cuenta"' : "Marcar: pidió la cuenta"}</button>`}
         ${puede("cobrar") && vigentes(its).length ? `<button data-m="cobrar">${icon("dinero")} Cobrar</button>` : ""}
         <button data-m="reimprimir">${icon("print")} Reimprimir comanda</button>
-        <button data-m="comensales">${icon("personas")} Cambiar comensales</button>
-        <button data-m="mover">${icon("mover")} Pasar a otra mesa</button>
-        ${!hayEnviados || puede("anular") ? `<button data-m="cerrar" class="peligro">${icon("x")} ${hayEnviados ? "Cerrar sin cobrar" : "Liberar mesa"}</button>` : ""}
+        ${ped ? "" : `<button data-m="comensales">${icon("personas")} Cambiar comensales</button>
+        <button data-m="mover">${icon("mover")} Pasar a otra mesa</button>`}
+        ${!hayEnviados || puede("anular") ? `<button data-m="cerrar" class="peligro">${icon("x")} ${ped ? "Cancelar pedido" : hayEnviados ? "Cerrar sin cobrar" : "Liberar mesa"}</button>` : ""}
       </div>`,
     });
     m.el.addEventListener("click", async (e) => {
@@ -230,7 +255,9 @@ export function mount(root, { param: cid }) {
       if (!b) return;
       m.cerrar();
       const a = b.dataset.m;
-      if (a === "precuenta") precuenta();
+      if (a === "datos") editarPedido(c);
+      else if (a === "wa") whatsappPedido(c);
+      else if (a === "precuenta") precuenta();
       else if (a === "cuenta") marcarCuenta();
       else if (a === "cobrar") abrirCobro(cid);
       else if (a === "reimprimir") reimprimir();
@@ -245,7 +272,7 @@ export function mount(root, { param: cid }) {
   function precuenta() {
     const c = comanda();
     const its = agrupar(vigentes(items()));
-    imprimir(ticketPrecuenta({ mesa: c.mesaNombre, mozo: c.mozo, items: its, total: totalItems(items()) }));
+    imprimir(ticketPrecuenta({ mesa: c.mesaNombre, mozo: c.mozo, items: its, total: totalItems(items()), pedido: esPedido(c) ? c : null }));
   }
   function marcarCuenta() {
     const c = comanda();
@@ -255,7 +282,7 @@ export function mount(root, { param: cid }) {
     const c = comanda();
     const its = vigentes(items()).filter((i) => i.estado !== "nuevo" && i.sector !== "ninguno");
     if (!its.length) return toast("No hay nada enviado a cocina o barra");
-    imprimir(ticketComanda({ mesa: c.mesaNombre, mozo: c.mozo, comensales: c.comensales, items: its, reimpresion: true }));
+    imprimir(ticketComanda({ mesa: c.mesaNombre, mozo: c.mozo, comensales: esPedido(c) ? 0 : c.comensales, items: its, reimpresion: true, pedido: esPedido(c) ? c : null }));
   }
 
   function mover() {
@@ -286,21 +313,22 @@ export function mount(root, { param: cid }) {
   async function cerrarSinCobrar(hayEnviados) {
     const c = comanda();
     let motivo = "";
+    const ped = esPedido(c);
     if (hayEnviados) {
-      motivo = await pedirTexto(`Cerrar ${c.mesaNombre} sin cobrar`, { placeholder: "Motivo", sugerencias: ["Invitación de la casa", "Se fueron sin pagar", "Error"], ok: "Cerrar mesa" });
+      motivo = await pedirTexto(ped ? `Cancelar ${c.mesaNombre}` : `Cerrar ${c.mesaNombre} sin cobrar`, { placeholder: "Motivo", sugerencias: ped ? ["El cliente lo canceló", "No vino a buscarlo", "Error de carga"] : ["Invitación de la casa", "Se fueron sin pagar", "Error"], ok: ped ? "Cancelar pedido" : "Cerrar mesa" });
       if (motivo === null) return;
-    } else if (!(await confirmar(`¿Liberar ${c.mesaNombre}?`, { ok: "Liberar" }))) return;
+    } else if (!(await confirmar(ped ? `¿Cancelar ${c.mesaNombre}?` : `¿Liberar ${c.mesaNombre}?`, { ok: ped ? "Cancelar pedido" : "Liberar" }))) return;
     const t = Date.now();
     const ops = [
       { op: "update", col: "comandas", id: cid, data: { estado: "anulada", cerrada: t, motivo: motivo || "Sin consumo", cerradaPor: S.perfil.nombre } },
-      { op: "update", col: "mesas", id: c.mesaId, data: { comandaId: null } },
     ];
+    if (c.mesaId) ops.push({ op: "update", col: "mesas", id: c.mesaId, data: { comandaId: null } });
     for (const i of items()) {
       if (i.estado === "nuevo") ops.push({ op: "delete", col: "items", id: i.id });
       else ops.push({ op: "update", col: "items", id: i.id, data: { cerrado: true } });
     }
     db.batch(ops);
-    if (hayEnviados) log("anulacion", `${c.mesaNombre} cerrada sin cobrar (${motivo || "sin motivo"}) · ${fmt(totalItems(items()))}`, { comandaId: cid });
+    if (hayEnviados) log("anulacion", `${c.mesaNombre} ${ped ? "cancelado" : "cerrada sin cobrar"} (${motivo || "sin motivo"}) · ${fmt(totalItems(items()))}`, { comandaId: cid });
     location.hash = "#/salon";
   }
 
@@ -321,7 +349,7 @@ export function mount(root, { param: cid }) {
     const t = e.target.closest("[data-tab]");
     if (t && t.tagName === "BUTTON") { tab = t.dataset.tab; wrap.dataset.tab = tab; marcarTabs(); return; }
     const ch = e.target.closest("[data-cat]");
-    if (ch) { cat = ch.dataset.cat; q = ""; root.querySelector("#cBusq").value = ""; renderCarta(); return; }
+    if (ch) { cat = ch.dataset.cat; catElegida = true; q = ""; root.querySelector("#cBusq").value = ""; renderCarta(); return; }
     const b = e.target.closest("[data-act]");
     if (!b) return;
     const id = b.dataset.id;
@@ -337,6 +365,10 @@ export function mount(root, { param: cid }) {
       case "anular": anular(id); break;
       case "enviar": enviar(); break;
       case "cobrar": abrirCobro(cid); break;
+      case "cobrarRapido": enviar(); setTimeout(() => abrirCobro(cid), 60); break;
+      case "entregar": { const tipo = entregarPedido(cid); toast(tipo === "delivery" ? "Salió el delivery" : "Entregado"); break; }
+      case "datos": editarPedido(comanda()); break;
+      case "wa": whatsappPedido(comanda()); break;
       case "cuenta": marcarCuenta(); break;
       case "menu": menu(); break;
       case "scan":
@@ -367,7 +399,7 @@ export function mount(root, { param: cid }) {
     update(claves) {
       if (claves.some((k) => ["comandas", "items", "productos", "insumos", "usuarios", "config", "perfil"].includes(k))) render();
     },
-    unmount() { soltarLector(); clearTimeout(revisar); clearInterval(reloj); },
+    unmount() { soltarLector(); clearTimeout(revisar); clearInterval(reloj); descartarSiVacia(cid); },
   };
 }
 

@@ -1,4 +1,4 @@
-# A&F — versión 0.7.2
+# A&F — versión 0.8
 
 PWA para celular, tablet y PC. HTML, CSS y JS sin compilar, igual que el resto de JPSoft. Se publica en GitHub Pages y usa Firebase (Firestore + Auth) con caché sin conexión.
 
@@ -212,6 +212,32 @@ El **día comercial empieza a las 6 de la mañana**: lo que se cobra a las 2 de 
 - **Pantalla al abrir:** en **Ajustes → Este dispositivo → Al abrir la app, mostrar** se elige con qué pantalla arranca cada equipo. Por ejemplo, la PC del mostrador en Caja y la tablet de la cocina en Cocina y barra. Si el rol no puede ver la pantalla elegida, abre en Salón.
 - **Ajustes:** Este dispositivo, Carta QR, Respaldo, Mesas y Negocio, en ese orden.
 
+## 3 nonies. Para llevar, delivery y venta rápida (v0.8)
+
+- **Dónde:** el **Salón** tiene dos pestañas, **Mesas** y **Para llevar y delivery** (en el celular, "Pedidos"). Cada dispositivo recuerda la última que se usó.
+- **Pedido para llevar o delivery:**
+  - Se cargan nombre, teléfono, hora de retiro o entrega y una nota.
+  - En los delivery también la dirección y el costo de envío. El envío habitual se configura en Ajustes → Negocio y se puede cambiar en cada pedido.
+  - Si el nombre es de un cliente guardado (Clientes, que ahora tiene dirección), completa solo el teléfono y la dirección.
+  - Después se cargan los productos igual que en una mesa y se envían a cocina o barra.
+- **En la cocina:**
+  - Las tarjetas de los pedidos tienen una banda clara arriba, por ejemplo "LLEVAR · 13:30 h" o "DELIVERY · 21:15 h".
+  - La comanda impresa dice "*** PARA LLEVAR ***" o "*** DELIVERY ***", con la hora.
+- **Tarjetas del Salón:** muestran el estado de cada pedido: sin enviar, en preparación, demorado (si pasó la hora), listo para retirar o para salir, y en camino o entregado si falta cobrar.
+- **Cuando la cocina termina:** el pedido aparece en **Listo para entregar** con el botón **Entregado** o, si es delivery, **Salió**.
+- **Cobro:** se puede cobrar antes, al tomar el pedido, o después, cuando vuelve el repartidor o el cliente lo retira.
+- **WhatsApp al cliente:** el ícono de WhatsApp de la comanda tiene mensajes listos: "pedido recibido" con el detalle y el total, "está listo para retirar" y "va en camino".
+- **Ticket para el envío:** en el delivery, la precuenta sale con nombre, teléfono, dirección, hora y nota.
+- **Venta rápida:**
+  - Para el mostrador, sin datos del cliente. Arranca en ★ Favoritos y se cobra directo; lo que es de barra o cocina se envía solo.
+  - Al terminar, el botón **Otra venta rápida** abre la siguiente.
+  - Si se sale sin cargar nada, no queda abierta.
+- **Favoritos:** la estrella en **Productos** (o el interruptor en la ficha) marca los productos que aparecen primero.
+- **Reportes:**
+  - Hay una sección nueva, "Mesas, para llevar y delivery".
+  - El gasto por persona se calcula solo con las mesas.
+  - El Excel y el respaldo traen el tipo de venta y los datos del cliente.
+
 ## 4. Escáner de códigos
 
 - **Android (Chrome):** usa el lector que trae el navegador. Es rápido y funciona sin conexión.
@@ -251,6 +277,7 @@ js/carta.js        ← página pública de la carta
 js/vendor/qrcode.mjs ← generador de QR (Kazuhiko Arase, licencia MIT)
 js/respaldo.js     ← respaldo completo en Excel
 js/firma.js        ← firma del desarrollador y contactos (WhatsApp, redes, Maps)
+js/pedidos.js      ← pedidos para llevar, delivery y venta rápida
 js/vistas/         ← salon, mesa, cobro, cocina, caja, productos, insumos, reportes,
                      reservas, compras, clientes, recordatorios, usuarios, ajustes
 ```

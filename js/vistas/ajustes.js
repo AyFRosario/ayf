@@ -3,14 +3,14 @@
 // ============================================================
 import { S, puede, MEDIOS, dispositivo, guardarDispositivo, sectoresMesas, comandaDeMesa, log, PANTALLAS_INICIO } from "../store.js";
 import { db, auth, MODO } from "../db.js";
-import { esc, icon, modal, toast, confirmar, pedirTexto, fechaHora } from "../util.js";
+import { esc, icon, modal, toast, confirmar, pedirTexto, fechaHora, num } from "../util.js";
 import { imprimir, imprimirHoja, ticketPrueba, conectarBluetooth, conectarUSB, btConectada, usbConectada } from "../print.js";
 import { urlCarta } from "../publicar.js";
 import { qrcode } from "../vendor/qrcode.mjs";
 import { descargarRespaldo, diasSinRespaldo } from "../respaldo.js";
 import { firmaHTML, iconoContacto, usuarioRed } from "../firma.js";
 
-const VERSION_APP = "0.7.4";
+const VERSION_APP = "0.8.0";
 
 const MODOS = {
   ninguna: { t: "Sin impresora", d: "Este dispositivo no imprime." },
@@ -73,6 +73,7 @@ export function mount(root) {
         <label class="campo"><span>Nombre</span><input class="input" id="nNom" value="${esc(c.nombre)}"></label>
         <label class="campo"><span>Lema (sale en los tickets)</span><input class="input" id="nLema" value="${esc(c.lema || "")}"></label>
         <label class="campo"><span>Pie del ticket</span><input class="input" id="nPie" value="${esc(c.pieTicket || "")}"></label>
+        <label class="campo"><span>Costo de envío habitual (delivery)</span><input class="input" id="nEnvio" inputmode="decimal" value="${c.envio ? Math.round(c.envio) : ""}" placeholder="$ 0"><small class="ayuda">Se propone al crear un delivery; se puede cambiar en cada pedido.</small></label>
         <div class="dos-col">
           <label class="campo"><span>Dirección</span><input class="input" id="nDir" value="${esc(c.direccion || "")}" placeholder="San Martín 2920"></label>
           <label class="campo"><span>Horario</span><input class="input" id="nHor" value="${esc(c.horario || "")}" placeholder="Mar a dom de 19 a 1"></label>
@@ -100,6 +101,7 @@ export function mount(root) {
         nombre: el.querySelector("#nNom").value.trim() || "A&F",
         lema: el.querySelector("#nLema").value.trim(),
         pieTicket: el.querySelector("#nPie").value.trim(),
+        envio: Math.max(0, Math.round(num(el.querySelector("#nEnvio").value)) || 0),
         mozoCobra: el.querySelector("#nMozo").checked,
         cuentaCorriente: el.querySelector("#nCuenta").checked,
         reservasCarta: el.querySelector("#nResCarta").checked,

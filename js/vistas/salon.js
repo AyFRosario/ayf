@@ -6,6 +6,7 @@ import { db } from "../db.js";
 import { esc, fmt, durTxt, minutos, icon, modal, toast, iniciales } from "../util.js";
 import { sentar } from "./reservas.js";
 import { pendientesRecordatorios, txtDias } from "./recordatorios.js";
+import { TIPOS_PEDIDO, esPedido, estadoPedido, pedidosAbiertos, nuevoPedido, nuevaVentaRapida, entregarPedido } from "../pedidos.js";
 
 // Reservas de hoy que todavía no llegaron
 export const reservasDeHoy = () => S.reservas
@@ -16,16 +17,32 @@ const reservaDeMesa = (m) => reservasDeHoy().find((r) => r.mesaId === m.id && Ma
 
 export function mount(root) {
   let sector = localStorage.getItem("af_salon_sector") || "Todos";
+  // Mesas o pedidos (para llevar, delivery y venta rápida): queda recordado en cada dispositivo
+  let vista = localStorage.getItem("af_salon_vista") === "pedidos" ? "pedidos" : "mesas";
   root.innerHTML = `
     <div class="salon">
       <div class="aviso-caja" id="sAviso"></div>
       <div class="res-hoy" id="sReservas"></div>
       <div class="listos" id="sListos"></div>
-      <div class="salon-cab">
-        <div class="chips desliza" id="sSectores"></div>
-        <div class="salon-resumen" id="sResumen"></div>
+      <div class="segmentado salon-vistas" id="sVistas">
+        <button data-vista="mesas">${icon("mesas")} Mesas <span class="contador" id="sCMesas"></span></button>
+        <button data-vista="pedidos">${icon("bolsa")} <span class="solo-ancho">Para llevar y delivery</span><span class="solo-angosto">Pedidos</span> <span class="contador" id="sCPed"></span></button>
       </div>
-      <div id="sMesas"></div>
+      <div id="sVMesas">
+        <div class="salon-cab">
+          <div class="chips desliza" id="sSectores"></div>
+          <div class="salon-resumen" id="sResumen"></div>
+        </div>
+        <div id="sMesas"></div>
+      </div>
+      <div id="sVPedidos">
+        ${puede("mesa") ? `<div class="ped-botones">
+          <button class="btn btn-pri" data-act="pedido" data-tipo="llevar">${icon("bolsa")} Para llevar</button>
+          <button class="btn btn-pri" data-act="pedido" data-tipo="delivery">${icon("moto")} Delivery</button>
+          <button class="btn" data-act="rapida">${icon("flash")} Venta rápida</button>
+        </div>` : ""}
+        <div id="sPedidos"></div>
+      </div>
     </div>`;
 
   const reloj = setInterval(() => render(), 30000);
@@ -56,20 +73,34 @@ export function mount(root) {
         }).join("")}</div>`
       : "";
 
-    // Pedidos listos para llevar
+    // Lo que la cocina o la barra ya terminó: a la mesa, al mostrador o al delivery
     const listos = S.items.filter((i) => i.estado === "listo");
     const grupos = {};
     for (const i of listos) (grupos[i.comandaId] ||= []).push(i);
     const ordenG = Object.values(grupos).sort((a, b) => (a[0].mozoUid === S.user.uid ? -1 : 0) - (b[0].mozoUid === S.user.uid ? -1 : 0));
     root.querySelector("#sListos").innerHTML = ordenG.length && S.rol !== "cocina"
-      ? `<div class="listos-cab">${icon("campana")} Listo para llevar</div>` +
-        ordenG.map((g) => `
+      ? `<div class="listos-cab">${icon("campana")} Listo para entregar</div>` +
+        ordenG.map((g) => {
+          const tp = TIPOS_PEDIDO[g[0].tipo];
+          return `
           <div class="listo-fila ${g[0].mozoUid === S.user.uid ? "mio" : ""}">
-            <div><b>${esc(g[0].mesaNombre)}</b> <small>${esc(g[0].mozo || "")}</small>
+            <div>${tp ? `<span class="pill ped-pill">${icon(tp.icono)} ${tp.corto}${g[0].hora ? ` · ${esc(g[0].hora)}` : ""}</span> ` : ""}<b>${esc(tp && g[0].tipo !== "mostrador" ? g[0].mesaNombre.replace(/^[^·]+·\s*/, "") : g[0].mesaNombre)}</b> <small>${esc(g[0].mozo || "")}</small>
               <div class="listo-items">${g.map((i) => `${i.cant}× ${esc(i.desc)}`).join(" · ")}</div></div>
-            <button class="btn btn-verde" data-act="entregar" data-cid="${esc(g[0].comandaId)}">${icon("check")} Entregado</button>
-          </div>`).join("")
+            <button class="btn btn-verde" data-act="entregar" data-cid="${esc(g[0].comandaId)}">${icon(g[0].tipo === "delivery" ? "moto" : "check")} ${g[0].tipo === "delivery" ? "Salió" : "Entregado"}</button>
+          </div>`;
+        }).join("")
       : "";
+
+    // Vista: mesas o pedidos
+    const peds = pedidosAbiertos();
+    root.querySelectorAll("[data-vista]").forEach((b) => b.classList.toggle("activo", b.dataset.vista === vista));
+    root.querySelector("#sVMesas").hidden = vista !== "mesas";
+    root.querySelector("#sVPedidos").hidden = vista !== "pedidos";
+    root.querySelector("#sCMesas").textContent = S.mesas.filter((m) => comandaDeMesa(m)).length || "";
+    root.querySelector("#sCPed").textContent = peds.length || "";
+    root.querySelector("#sPedidos").innerHTML = peds.length
+      ? `<div class="pedidos">${peds.map(tarjetaPedido).join("")}</div>`
+      : `<div class="vacio chico">${icon("bolsa")}<p>No hay pedidos abiertos.<br>Los pedidos para llevar y delivery van a la cocina igual que una mesa.</p></div>`;
 
     // Sectores
     const sectores = sectoresMesas();
@@ -80,7 +111,7 @@ export function mount(root) {
 
     // Resumen
     const ocupadas = S.mesas.filter((m) => comandaDeMesa(m)).length;
-    const pendiente = S.comandas.reduce((s, c) => s + totalItems(itemsDe(c.id)), 0);
+    const pendiente = S.comandas.filter((c) => !esPedido(c)).reduce((s, c) => s + totalItems(itemsDe(c.id)), 0);
     root.querySelector("#sResumen").innerHTML = `<span>${ocupadas}/${S.mesas.length} ocupadas</span>${puede("caja") ? `<span>${fmt(pendiente)} en mesas</span>` : ""}`;
 
     // Mesas agrupadas por sector
@@ -122,6 +153,18 @@ export function mount(root) {
       <span class="mesa-total">${fmt(totalItems(its))}</span>
       <span class="mesa-info">${icon("reloj")} ${durTxt(c.abierta)} · <span class="mini-avatar" title="${esc(c.mozo || "")}">${esc(iniciales(c.mozo))}</span></span>
       ${badge}</button>`;
+  }
+
+  function tarjetaPedido(c) {
+    const tp = TIPOS_PEDIDO[c.tipo];
+    const e = estadoPedido(c);
+    const its = itemsDe(c.id);
+    return `<button class="ped-card ${e.clave}" data-act="ir" data-cid="${esc(c.id)}">
+      <span class="ped-cab"><span class="ped-tipo">${icon(tp.icono)} ${tp.t}</span>${c.hora ? `<span class="ped-hora">${icon("reloj")} ${esc(c.hora)}</span>` : `<span class="ped-hora suave">${durTxt(c.abierta)}</span>`}</span>
+      <b class="ped-nom">${esc(c.tipo === "mostrador" ? c.mesaNombre : c.cliente?.nombre || c.mesaNombre)}</b>
+      ${c.tipo === "delivery" && c.cliente?.direccion ? `<small class="ped-dir">${esc(c.cliente.direccion)}</small>` : c.cliente?.telefono ? `<small class="ped-dir">${esc(c.cliente.telefono)}</small>` : ""}
+      <span class="ped-pie"><span class="ped-estado ${e.clase}">${e.texto}</span><span class="ped-total">${fmt(totalItems(its))}</span></span>
+    </button>`;
   }
 
   function abrirMesa(mesa) {
@@ -167,6 +210,8 @@ export function mount(root) {
   }
 
   root.addEventListener("click", (e) => {
+    const vb = e.target.closest("[data-vista]");
+    if (vb) { vista = vb.dataset.vista; localStorage.setItem("af_salon_vista", vista); render(); return; }
     const s = e.target.closest("[data-sector]");
     if (s) { sector = s.dataset.sector; localStorage.setItem("af_salon_sector", sector); render(); return; }
     const b = e.target.closest("[data-act]");
@@ -178,11 +223,11 @@ export function mount(root) {
       const mesa = S.mesas.find((x) => x.id === b.dataset.id);
       if (mesa) abrirMesa(mesa);
     } else if (b.dataset.act === "entregar") {
-      const its = S.items.filter((i) => i.comandaId === b.dataset.cid && i.estado === "listo");
-      const t = Date.now();
-      db.batch(its.map((i) => ({ op: "update", col: "items", id: i.id, data: { estado: "entregado", entregadoTs: t, ...(i.comandaCerrada ? { cerrado: true } : {}) } })));
-      toast(`${its[0]?.mesaNombre || "Mesa"}: entregado`);
-    }
+      const nombre = S.items.find((i) => i.comandaId === b.dataset.cid)?.mesaNombre || "Mesa";
+      const tipo = entregarPedido(b.dataset.cid);
+      toast(`${nombre}: ${tipo === "delivery" ? "salió" : "entregado"}`);
+    } else if (b.dataset.act === "pedido") nuevoPedido(b.dataset.tipo);
+    else if (b.dataset.act === "rapida") nuevaVentaRapida();
   });
 
   render();
