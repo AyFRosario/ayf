@@ -11,6 +11,7 @@
 // negocio, lo vuelve a publicar (solo si algo cambió de verdad).
 import { S, onStore, categorias, waLink } from "./store.js";
 import { db } from "./db.js";
+import { resumenGrupos } from "./opciones.js";
 
 let ultimoHash = null;
 let timer = 0;
@@ -33,6 +34,8 @@ export function construirCarta() {
         .map((p) => {
           const item = { n: p.nombre, p: Math.round(Number(p.precio) || 0) };
           if (p.descripcion) item.d = p.descripcion;
+          const op = resumenGrupos(p);
+          if (op) item.o = op;
           if (p.controlStock && (Number(p.stock) || 0) <= 0) item.a = 1; // agotado
           return item;
         }),

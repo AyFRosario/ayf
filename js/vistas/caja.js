@@ -14,12 +14,14 @@ import { tocaRespaldo, diasSinRespaldo, descargarRespaldo } from "../respaldo.js
 
 export function resumenJornada(j, ventas, movs) {
   const porMedio = Object.fromEntries(Object.keys(MEDIOS).map((m) => [m, 0]));
-  let total = 0, cant = 0, anuladas = 0, descuentos = 0;
+  let total = 0, cant = 0, anuladas = 0, descuentos = 0, propinas = 0;
+  const propinasMozo = {};
   for (const v of ventas) {
     if (v.estado === "anulada") { anuladas++; continue; }
     cant++;
     total += v.total || 0;
     descuentos += v.descuento?.monto || 0;
+    if (v.propina) { propinas += v.propina; propinasMozo[v.mozo || "Sin mozo"] = (propinasMozo[v.mozo || "Sin mozo"] || 0) + v.propina; }
     for (const p of v.pagos || []) porMedio[p.medio] = (porMedio[p.medio] || 0) + (p.monto || 0);
   }
   let gastos = 0, gastosEf = 0, retiros = 0, ingresos = 0;
@@ -30,7 +32,7 @@ export function resumenJornada(j, ventas, movs) {
     else if (m.tipo === "ingreso" && ef) ingresos += m.monto;
   }
   const esperado = (j?.apertura?.fondo || 0) + (porMedio.efectivo || 0) + ingresos - gastosEf - retiros;
-  return { porMedio, total, cant, anuladas, descuentos, gastos, gastosEf, retiros, ingresos, esperado, promedio: cant ? total / cant : 0 };
+  return { porMedio, total, cant, anuladas, descuentos, propinas, propinasMozo, gastos, gastosEf, retiros, ingresos, esperado, promedio: cant ? total / cant : 0 };
 }
 
 export function mount(root) {
@@ -78,7 +80,7 @@ export function mount(root) {
       </div>
 
       <div class="kpis">
-        <div class="kpi"><small>Vendido</small><b>${fmt(r.total)}</b><span>${r.cant} venta${r.cant === 1 ? "" : "s"}</span></div>
+        <div class="kpi"><small>Vendido</small><b>${fmt(r.total)}</b><span>${r.cant} venta${r.cant === 1 ? "" : "s"}${r.propinas ? ` · propinas ${fmt(r.propinas)}` : ""}</span></div>
         <div class="kpi"><small>Ticket promedio</small><b>${fmt(r.promedio)}</b><span>${r.descuentos ? `Descuentos ${fmt(r.descuentos)}` : "&nbsp;"}</span></div>
         <div class="kpi"><small>Efectivo en caja</small><b>${fmt(r.esperado)}</b><span>esperado</span></div>
         <div class="kpi"><small>En mesas abiertas</small><b>${fmt(enMesas)}</b><span>${abiertas} mesa${abiertas === 1 ? "" : "s"}</span></div>
@@ -86,9 +88,10 @@ export function mount(root) {
 
       <div class="caja-grid">
         <section class="tarjeta">
-          <h3>Por medio de pago</h3>
+          <h3>Cobrado por medio de pago</h3>
           ${Object.entries(r.porMedio).filter(([m, v]) => v || (S.config.medios || []).includes(m)).map(([m, v]) => `
             <div class="barra-medio"><span>${MEDIOS[m]}</span><div class="barra"><i style="width:${(v / maxMedio) * 100}%"></i></div><b>${fmt(v)}</b></div>`).join("")}
+          ${r.propinas ? `<p class="ayuda caja-propinas">Incluye ${fmt(r.propinas)} de propinas: ${Object.entries(r.propinasMozo).map(([n, v]) => `${esc(n)} ${fmt(v)}`).join(" · ")}</p>` : ""}
         </section>
 
         <section class="tarjeta">
@@ -175,9 +178,10 @@ export function mount(root) {
       titulo: `${v.mesaNombre} · ${v.nro}`,
       cuerpo: `
         <p class="ayuda">${fechaHora(v.ts)} · Atendió ${esc(v.mozo || "")} · Cobró ${esc(v.cobradoPor || "")}${v.estado === "anulada" ? ` · <b class="neg">Anulada: ${esc(v.motivo || "")}</b>` : ""}</p>
-        <div class="co-items">${(v.items || []).map((i) => `<div class="co-linea"><span>${i.cant}× ${esc(i.desc)}</span><span>${fmt(i.precio * i.cant)}</span></div>`).join("")}</div>
+        <div class="co-items">${(v.items || []).map((i) => `<div class="co-linea"><span>${i.cant}× ${esc(i.desc)}${i.detalle ? `<small>${esc(i.detalle)}</small>` : ""}</span><span>${fmt(i.precio * i.cant)}</span></div>`).join("")}</div>
         ${v.descuento ? `<div class="co-linea"><span>Descuento</span><span>− ${fmt(v.descuento.monto)}</span></div>` : ""}
         <div class="co-linea total"><span>Total</span><b>${fmt(v.total)}</b></div>
+        ${v.propina ? `<div class="co-linea"><span>Propina</span><span>+ ${fmt(v.propina)}</span></div><div class="co-linea"><span>Total pagado</span><b>${fmt(v.total + v.propina)}</b></div>` : ""}
         ${(v.pagos || []).map((p) => `<div class="co-linea"><span>${MEDIOS[p.medio]}${p.clienteNombre ? ` · ${esc(p.clienteNombre)}` : ""}</span><span>${fmt(p.monto)}</span></div>`).join("")}`,
       pie: `${v.estado !== "anulada" && puede("anular") ? `<button class="btn btn-peligro" data-a="anular">Anular venta</button>` : ""}
             <button class="btn" data-a="arca">${icon("externo")} ARCA</button>
@@ -212,11 +216,12 @@ export function mount(root) {
       cuerpo: `
         ${abiertas ? `<div class="banda ambar">${icon("alerta")} Hay ${abiertas} mesa${abiertas > 1 ? "s" : ""} abierta${abiertas > 1 ? "s" : ""}. Lo que se cobre después va a la próxima jornada.</div>` : ""}
         <div class="co-linea"><span>Fondo inicial</span><span>${fmt(j.apertura?.fondo)}</span></div>
-        <div class="co-linea"><span>+ Ventas en efectivo</span><span>${fmt(r.porMedio.efectivo)}</span></div>
+        <div class="co-linea"><span>+ Cobrado en efectivo${r.propinas ? " (con propinas)" : ""}</span><span>${fmt(r.porMedio.efectivo)}</span></div>
         ${r.ingresos ? `<div class="co-linea"><span>+ Ingresos</span><span>${fmt(r.ingresos)}</span></div>` : ""}
         ${r.gastosEf ? `<div class="co-linea"><span>− Gastos en efectivo</span><span>${fmt(r.gastosEf)}</span></div>` : ""}
         ${r.retiros ? `<div class="co-linea"><span>− Retiros</span><span>${fmt(r.retiros)}</span></div>` : ""}
         <div class="co-linea total"><span>Debería haber</span><b>${fmt(r.esperado)}</b></div>
+        ${r.propinas ? `<p class="ayuda cierre-prop">Propinas del turno: ${fmt(r.propinas)} (${Object.entries(r.propinasMozo).map(([n, v]) => `${esc(n)} ${fmt(v)}`).join(" · ")}). Si las repartís en efectivo antes de contar, cargalas como retiro.</p>` : ""}
         <form class="form" id="fCierre">
           <label class="campo"><span>Efectivo contado</span><input class="input grande" id="ciCont" inputmode="decimal" placeholder="$ 0" autofocus required></label>
           <div class="arqueo" id="ciDif"></div>
@@ -243,6 +248,7 @@ export function mount(root) {
         nota: m.el.querySelector("#ciNota").value.trim(),
         porMedio: r.porMedio, total: r.total, cant: r.cant, anuladas: r.anuladas,
         gastos: r.gastos, gastosEf: r.gastosEf, retiros: r.retiros, ingresos: r.ingresos,
+        ...(r.propinas ? { propinas: r.propinas, propinasMozo: r.propinasMozo } : {}),
       };
       db.update("jornadas", j.id, { estado: "cerrada", cierreTs: t, cierre });
       log("caja", `Caja cerrada · vendido ${fmt(r.total)} · diferencia ${fmt(d)}`);
@@ -263,12 +269,13 @@ export function mount(root) {
 
   function verJornada(j) {
     const c = j.cierre || {};
-    const r = { porMedio: c.porMedio || {}, total: c.total || 0, cant: c.cant || 0, anuladas: c.anuladas || 0, ingresos: c.ingresos || 0, gastosEf: c.gastosEf || 0, retiros: c.retiros || 0, esperado: c.esperado || 0 };
+    const r = { porMedio: c.porMedio || {}, total: c.total || 0, cant: c.cant || 0, anuladas: c.anuladas || 0, ingresos: c.ingresos || 0, gastosEf: c.gastosEf || 0, retiros: c.retiros || 0, esperado: c.esperado || 0, propinas: c.propinas || 0, propinasMozo: c.propinasMozo || {} };
     const m = modal({
       titulo: `Jornada ${fechaHora(j.aperturaTs)}`,
       cuerpo: `
         ${Object.entries(r.porMedio).filter(([, v]) => v).map(([k, v]) => `<div class="co-linea"><span>${MEDIOS[k] || k}</span><span>${fmt(v)}</span></div>`).join("")}
         <div class="co-linea total"><span>Total vendido</span><b>${fmt(r.total)}</b></div>
+        ${r.propinas ? `<div class="co-linea"><span>Propinas (aparte)</span><span>${fmt(r.propinas)}</span></div>` : ""}
         <div class="co-linea"><span>Esperado en efectivo</span><span>${fmt(r.esperado)}</span></div>
         <div class="co-linea"><span>Contado</span><span>${fmt(c.contado)}</span></div>
         <div class="co-linea"><span>Diferencia</span><b>${fmt(c.diferencia)}</b></div>

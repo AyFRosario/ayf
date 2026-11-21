@@ -13,6 +13,9 @@ export const CONFIG_DEF = {
   horario: "",
   instagram: "",
   whatsapp: "",
+  propina: true,          // se puede sumar propina al cobrar
+  propinaPct: 10,         // porcentaje sugerido
+  propinaPrecuenta: false, // imprimir la propina sugerida en la precuenta
 };
 
 export const S = {
@@ -63,9 +66,9 @@ export const totalItems = (its) => vigentes(its).reduce((s, i) => s + (Number(i.
 export function agrupar(its) {
   const m = new Map();
   for (const i of its) {
-    const k = `${i.productoId}|${i.precio}|${i.desc}`;
+    const k = `${i.productoId}|${i.precio}|${i.desc}|${i.detalle || ""}`;
     if (m.has(k)) m.get(k).cant += Number(i.cant) || 0;
-    else m.set(k, { productoId: i.productoId, desc: i.desc, precio: Number(i.precio) || 0, cant: Number(i.cant) || 0 });
+    else m.set(k, { productoId: i.productoId, desc: i.desc, ...(i.detalle ? { detalle: i.detalle } : {}), precio: Number(i.precio) || 0, cant: Number(i.cant) || 0 });
   }
   return [...m.values()];
 }

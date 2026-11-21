@@ -17,7 +17,8 @@ export function abrirCobro(cid) {
   if (!c0) return;
 
   const medios = mediosCobro();
-  const st = { descTipo: "pct", descValor: 0, pagos: [{ medio: medios[0] || "efectivo", monto: 0 }], pagaCon: 0, totalPrevio: null };
+  const st = { descTipo: "pct", descValor: 0, propTipo: "no", propValor: 0, pagos: [{ medio: medios[0] || "efectivo", monto: 0 }], pagaCon: 0, totalPrevio: null };
+  const pctProp = Number(S.config.propinaPct) || 10;
 
   const m = modal({
     titulo: `Cobrar ${c0.mesaNombre}`,
@@ -33,6 +34,13 @@ export function abrirCobro(cid) {
         <b id="coDescMonto"></b>
       </div>
       <div class="co-total"><span>Total</span><b id="coTotal"></b></div>
+      ${S.config.propina !== false ? `<div class="co-fila co-prop">
+        <span>Propina</span>
+        <div class="segmentado"><button type="button" data-pt="no">No</button><button type="button" data-pt="pct">${pctProp}%</button><button type="button" data-pt="monto">$</button></div>
+        <input class="input chico" id="coProp" inputmode="decimal" placeholder="$ 0" hidden>
+        <b id="coPropMonto"></b>
+      </div>
+      <div class="co-fila co-apagar" id="coAPagar" hidden><span>A pagar con propina</span><b></b></div>` : ""}
       <h4 class="subtitulo">Forma de pago</h4>
       <div id="coPagos"></div>
       <div class="co-acciones">
@@ -56,8 +64,11 @@ export function abrirCobro(cid) {
     let desc = 0;
     if (st.descValor > 0) desc = st.descTipo === "pct" ? Math.round(subtotal * Math.min(100, st.descValor) / 100) : Math.min(Math.round(st.descValor), subtotal);
     const total = subtotal - desc;
+    // La propina se cobra junto con la cuenta pero no es venta: va aparte
+    const propina = st.propTipo === "pct" ? Math.round(total * pctProp / 100) : st.propTipo === "monto" ? Math.max(0, Math.round(st.propValor)) : 0;
+    const aPagar = total + propina;
     const pagado = Math.round(st.pagos.reduce((s, p) => s + (Number(p.monto) || 0), 0));
-    return { its, lineas, subtotal, desc, total, pagado };
+    return { its, lineas, subtotal, desc, total, propina, aPagar, pagado };
   }
 
   function renderPagos() {
@@ -75,11 +86,11 @@ export function abrirCobro(cid) {
     if (!S.comandas.some((c) => c.id === cid)) { m.cerrar(); toast("La mesa ya se cerró desde otro dispositivo"); return; }
     // Si cambió el total y hay un solo pago, acompaña
     if (st.pagos.length === 1 && (st.totalPrevio === null || st.pagos[0].monto === st.totalPrevio)) {
-      st.pagos[0].monto = r.total;
+      st.pagos[0].monto = r.aPagar;
       const inp = m.el.querySelector('[data-monto="0"]');
-      if (inp && document.activeElement !== inp) inp.value = r.total || "";
+      if (inp && document.activeElement !== inp) inp.value = r.aPagar || "";
     }
-    st.totalPrevio = r.total;
+    st.totalPrevio = r.aPagar;
     const pagado = Math.round(st.pagos.reduce((s, p) => s + (Number(p.monto) || 0), 0));
 
     const nuevos = r.its.filter((i) => i.estado === "nuevo").length;
@@ -88,18 +99,25 @@ export function abrirCobro(cid) {
       nuevos ? `<div class="banda ambar">${icon("alerta")} Hay ${nuevos} ítem${nuevos > 1 ? "s" : ""} sin enviar a cocina/barra. Se cobran igual.</div>` : "",
     ].join("");
     $("#coResumen").textContent = `${r.lineas.reduce((s, l) => s + l.cant, 0)} ítems · ver detalle`;
-    $("#coItems").innerHTML = r.lineas.map((l) => `<div class="co-linea"><span>${l.cant}× ${esc(l.desc)}</span><span>${fmt(l.precio * l.cant)}</span></div>`).join("");
+    $("#coItems").innerHTML = r.lineas.map((l) => `<div class="co-linea"><span>${l.cant}× ${esc(l.desc)}${l.detalle ? `<small>${esc(l.detalle)}</small>` : ""}</span><span>${fmt(l.precio * l.cant)}</span></div>`).join("");
     $("#coSub").textContent = fmt(r.subtotal);
     $("#coDescMonto").textContent = r.desc ? "− " + fmt(r.desc) : "";
     $("#coTotal").textContent = fmt(r.total);
     m.el.querySelectorAll("[data-dt]").forEach((b) => b.classList.toggle("activo", b.dataset.dt === st.descTipo));
+    if ($("#coPropMonto")) {
+      m.el.querySelectorAll("[data-pt]").forEach((b) => b.classList.toggle("activo", b.dataset.pt === st.propTipo));
+      $("#coProp").hidden = st.propTipo !== "monto";
+      $("#coPropMonto").textContent = r.propina ? "+ " + fmt(r.propina) : "";
+      $("#coAPagar").hidden = !r.propina;
+      $("#coAPagar b").textContent = fmt(r.aPagar);
+    }
 
     const ef = st.pagos.filter((p) => p.medio === "efectivo").reduce((s, p) => s + (Number(p.monto) || 0), 0);
     $("#coEf").hidden = !ef;
     const vuelto = st.pagaCon > ef && ef ? Math.round(st.pagaCon - ef) : 0;
     $("#coVuelto").innerHTML = vuelto ? `Vuelto <b>${fmt(vuelto)}</b>` : "";
 
-    const dif = r.total - pagado;
+    const dif = r.aPagar - pagado;
     const est = $("#coEstado");
     const sinCliente = st.pagos.some((p) => p.medio === "cuenta" && Number(p.monto) > 0 && !p.clienteId);
     if (sinCliente) { est.className = "co-estado falta"; est.textContent = "Elegí el cliente de la cuenta corriente"; }
@@ -108,13 +126,15 @@ export function abrirCobro(cid) {
     else { est.className = "co-estado sobra"; est.textContent = `Hay ${fmt(-dif)} de más`; }
     const ok = $("#coOk");
     ok.disabled = !S.jornada || Math.abs(dif) >= 1 || !r.lineas.length || sinCliente;
-    ok.textContent = `Cobrar ${fmt(r.total)}`;
+    ok.textContent = `Cobrar ${fmt(r.aPagar)}`;
   }
 
   // Eventos
   m.el.addEventListener("click", async (e) => {
     const dt = e.target.closest("[data-dt]");
     if (dt) { st.descTipo = dt.dataset.dt; actualizar(); return; }
+    const pt = e.target.closest("[data-pt]");
+    if (pt) { st.propTipo = pt.dataset.pt; actualizar(); if (st.propTipo === "monto") $("#coProp").focus(); return; }
     const cl = e.target.closest("[data-cliente]");
     if (cl) { pedirCliente(Number(cl.dataset.cliente)); return; }
     const q = e.target.closest("[data-quitar]");
@@ -123,20 +143,21 @@ export function abrirCobro(cid) {
     if (!a) return;
     const r = calcular();
     if (a.dataset.act === "otro") {
-      const resto = Math.max(0, r.total - r.pagado);
+      const resto = Math.max(0, r.aPagar - r.pagado);
       st.pagos.push({ medio: medios.find((x) => !st.pagos.some((p) => p.medio === x)) || medios[0], monto: resto });
       renderPagos(); actualizar();
     } else if (a.dataset.act === "dividir") {
       const n = parseInt(await pedirTexto("¿En cuántas partes?", { valor: String(S.comandas.find((c) => c.id === cid)?.comensales || 2), tipo: "numero" }), 10);
       if (!n || n < 2 || n > 30) return;
-      const parte = Math.floor(r.total / n);
-      st.pagos = Array.from({ length: n }, (_, i) => ({ medio: st.pagos[i]?.medio || medios[0], monto: i === n - 1 ? r.total - parte * (n - 1) : parte }));
+      const parte = Math.floor(r.aPagar / n);
+      st.pagos = Array.from({ length: n }, (_, i) => ({ medio: st.pagos[i]?.medio || medios[0], monto: i === n - 1 ? r.aPagar - parte * (n - 1) : parte }));
       renderPagos(); actualizar();
     }
   });
   m.el.addEventListener("input", (e) => {
     const t = e.target;
     if (t.id === "coDesc") st.descValor = num(t.value);
+    else if (t.id === "coProp") st.propValor = num(t.value);
     else if (t.id === "coPagaCon") st.pagaCon = num(t.value);
     else if (t.dataset.monto !== undefined) st.pagos[Number(t.dataset.monto)].monto = num(t.value);
     actualizar();
@@ -172,7 +193,7 @@ export function abrirCobro(cid) {
     if (!j || !c) return;
     const r = calcular();
     const pagado = Math.round(st.pagos.reduce((s, p) => s + (Number(p.monto) || 0), 0));
-    if (Math.abs(r.total - pagado) >= 1) return;
+    if (Math.abs(r.aPagar - pagado) >= 1) return;
     if (st.pagos.some((p) => p.medio === "cuenta" && Number(p.monto) > 0 && !p.clienteId)) return;
     const t = Date.now();
     const vid = db.newId("ventas");
@@ -186,6 +207,7 @@ export function abrirCobro(cid) {
       items: r.lineas, subtotal: r.subtotal,
       descuento: r.desc ? { tipo: st.descTipo, valor: st.descValor, monto: r.desc } : null,
       total: r.total,
+      ...(r.propina ? { propina: r.propina, propinaMedio: [...st.pagos].sort((a, b) => (Number(b.monto) || 0) - (Number(a.monto) || 0))[0]?.medio || "efectivo" } : {}),
       pagos: st.pagos.filter((p) => Number(p.monto) > 0).map((p) => ({ medio: p.medio, monto: Math.round(p.monto), ...(p.medio === "cuenta" ? { clienteId: p.clienteId, clienteNombre: p.clienteNombre } : {}) })),
       vuelto: st.pagaCon > ef && ef ? Math.round(st.pagaCon - ef) : 0,
       estado: "ok",
@@ -213,7 +235,7 @@ export function abrirCobro(cid) {
       if (p?.controlStock) ops.push({ op: "update", col: "productos", id: pid, data: { stock: inc(-cant) } });
     }
     db.batch(ops);
-    log("venta", `${c.mesaNombre} cobrada ${fmt(r.total)} (${venta.pagos.map((p) => MEDIOS[p.medio]).join(" + ")})`, { ventaId: vid });
+    log("venta", `${c.mesaNombre} cobrada ${fmt(r.total)}${r.propina ? ` + propina ${fmt(r.propina)}` : ""} (${venta.pagos.map((p) => MEDIOS[p.medio]).join(" + ")})`, { ventaId: vid });
     beep("ok");
     m.cerrar();
     location.hash = "#/salon";
@@ -233,7 +255,7 @@ export function cobrado(v) {
     clase: "modal-chico",
     cuerpo: `<div class="cobrado">
       <div class="cobrado-ok">${icon("check")}</div>
-      <p><b>${esc(v.mesaNombre)}</b> · ${fmt(v.total)}</p>
+      <p><b>${esc(v.mesaNombre)}</b> · ${fmt(v.total)}${v.propina ? ` <span class="ayuda">+ propina ${fmt(v.propina)}</span>` : ""}</p>
       <p class="ayuda">Nº ${esc(v.nro)} · ${v.pagos.map((p) => `${MEDIOS[p.medio]}${p.clienteNombre ? ` (${esc(p.clienteNombre)})` : ""} ${fmt(p.monto)}`).join(" + ")}</p>
       ${v.vuelto ? `<p class="vuelto">Vuelto ${fmt(v.vuelto)}</p>` : ""}
     </div>`,

@@ -10,7 +10,7 @@ import { qrcode } from "../vendor/qrcode.mjs";
 import { descargarRespaldo, diasSinRespaldo } from "../respaldo.js";
 import { firmaHTML, iconoContacto, usuarioRed } from "../firma.js";
 
-const VERSION_APP = "0.8.0";
+const VERSION_APP = "0.9.0";
 
 const MODOS = {
   ninguna: { t: "Sin impresora", d: "Este dispositivo no imprime." },
@@ -90,9 +90,18 @@ export function mount(root) {
         <label class="switch"><input type="checkbox" id="nMozo" ${c.mozoCobra ? "checked" : ""}><span>Los mozos pueden cobrar</span></label>
         <label class="switch"><input type="checkbox" id="nCuenta" ${c.cuentaCorriente !== false ? "checked" : ""}><span>Permitir cobrar a cuenta corriente (clientes que pagan después)</span></label>
         <label class="switch"><input type="checkbox" id="nResCarta" ${c.reservasCarta !== false ? "checked" : ""}><span>Botón "Reservar por WhatsApp" en la carta QR</span></label>
+        <div class="aj-propina">
+          <label class="switch"><input type="checkbox" id="nProp" ${c.propina !== false ? "checked" : ""}><span>Registrar propinas al cobrar</span></label>
+          <div class="aj-prop-det" ${c.propina === false ? "hidden" : ""}>
+            <label class="campo"><span>Propina sugerida (%)</span><input class="input" id="nPropPct" inputmode="numeric" value="${Number(c.propinaPct) || 10}" style="max-width:110px"></label>
+            <label class="switch"><input type="checkbox" id="nPropPre" ${c.propinaPrecuenta ? "checked" : ""}><span>Mostrar la propina sugerida en la precuenta impresa</span></label>
+          </div>
+          <p class="ayuda">La propina se cobra junto con la cuenta pero no se suma a lo vendido: en Caja y Reportes aparece aparte y por mozo.</p>
+        </div>
         <div class="campo"><span>Medios de pago</span><div class="checks">${Object.entries(MEDIOS).filter(([k]) => k !== "cuenta").map(([k, v]) => `<label class="check"><input type="checkbox" data-medio="${k}" ${(c.medios || []).includes(k) ? "checked" : ""}> ${v}</label>`).join("")}</div></div>
         <button class="btn btn-pri">Guardar</button>
       </form>`;
+    el.querySelector("#nProp").onchange = (e) => { el.querySelector(".aj-prop-det").hidden = !e.target.checked; };
     el.querySelector("#fNeg").onsubmit = (e) => {
       e.preventDefault();
       const medios = [...el.querySelectorAll("[data-medio]:checked")].map((x) => x.dataset.medio);
@@ -105,6 +114,9 @@ export function mount(root) {
         mozoCobra: el.querySelector("#nMozo").checked,
         cuentaCorriente: el.querySelector("#nCuenta").checked,
         reservasCarta: el.querySelector("#nResCarta").checked,
+        propina: el.querySelector("#nProp").checked,
+        propinaPct: Math.min(50, Math.max(1, Math.round(num(el.querySelector("#nPropPct").value)) || 10)),
+        propinaPrecuenta: el.querySelector("#nPropPre").checked,
         medios,
         direccion: el.querySelector("#nDir").value.trim(),
         horario: el.querySelector("#nHor").value.trim(),

@@ -1,4 +1,4 @@
-# A&F — versión 0.8
+# A&F — versión 0.9
 
 PWA para celular, tablet y PC. HTML, CSS y JS sin compilar, igual que el resto de JPSoft. Se publica en GitHub Pages y usa Firebase (Firestore + Auth) con caché sin conexión.
 
@@ -7,9 +7,9 @@ PWA para celular, tablet y PC. HTML, CSS y JS sin compilar, igual que el resto d
 | Pantalla | Quién la usa | Qué hace |
 |---|---|---|
 | **Salón** | Mozo, encargado, dueño | Mesas por sector, con total, tiempo abierta y avisos (por ejemplo, "2 listos", "sin enviar" o "pidió la cuenta"). Arriba aparece la franja "Listo para llevar". |
-| **Comanda** | Mozo | Carta por categorías con buscador tolerante: "milaneza" encuentra "milanesa". Escáner de códigos con la cámara o con un lector USB. Notas por ítem. Enviar a cocina o barra. Precuenta, pasar a otra mesa, cerrar sin cobrar. |
+| **Comanda** | Mozo | Carta por categorías con buscador tolerante: "milaneza" encuentra "milanesa". Escáner de códigos con la cámara o con un lector USB. Notas por ítem y **opciones** (guarnición, punto, agregados con precio). Enviar a cocina o barra. Precuenta, pasar a otra mesa, cerrar sin cobrar. |
 | **Cocina y barra** | Cocina | Pedidos en columnas: Pendiente → En preparación → Listo. Suena un aviso al entrar un pedido y se puede imprimir solo. La pantalla no se apaga. |
-| **Cobro** | Encargado (y mozos si se habilita) | Descuento en % o $, pago dividido entre varios medios, vuelto, ticket no fiscal y botón **Facturar en ARCA**. |
+| **Cobro** | Encargado (y mozos si se habilita) | Descuento en % o $, **propina** aparte, pago dividido entre varios medios, vuelto, ticket no fiscal y botón **Facturar en ARCA**. |
 | **Caja** | Encargado, dueño | La jornada no se corta a medianoche. Muestra totales por medio de pago, y permite cargar gastos, retiros e ingresos. El cierre hace el arqueo (contado contra esperado) y la anulación de ventas devuelve el stock. |
 | **Productos** | Encargado, dueño | Alta y edición con código de barras. Control de stock con aviso de stock bajo. **Ingreso de mercadería escaneando con el celular**. Precios en tanda. |
 | **Reservas** | Mozo, encargado, dueño | Reservas por día: confirmar por WhatsApp, sentar en una mesa, "no vino". Las de hoy aparecen arriba del salón. |
@@ -238,6 +238,40 @@ El **día comercial empieza a las 6 de la mañana**: lo que se cobra a las 2 de 
   - El gasto por persona se calcula solo con las mesas.
   - El Excel y el respaldo traen el tipo de venta y los datos del cliente.
 
+## 3 decies. Opciones de los productos y propina (v0.9)
+
+### Opciones: guarnición, punto, agregados
+- **Dónde se arman:** **Productos → Opciones**. Cada grupo tiene:
+  - un nombre (Guarnición, Punto de la carne, Agregados…);
+  - si se elige **una** o **varias** (con un máximo opcional);
+  - si es **obligatorio**;
+  - las opciones, cada una con un precio extra si suma algo (por ejemplo, "Huevo frito + $800").
+- **Plantillas:** hay tres listas para empezar (Guarnición, Punto de la carne y Agregados). Se tocan, se ajustan y se guardan.
+- **A qué productos se aplica:** en el mismo grupo se tildan los productos (buscador y lista por categoría). También se puede hacer desde la ficha de cada producto, en "Opciones al cargarlo en la comanda". Un grupo sirve para muchos productos.
+- **En la comanda:** al tocar un producto con opciones se abre una ventana para elegir. No deja agregar hasta completar lo obligatorio, y el botón muestra el precio con los extras. Se puede elegir la cantidad ahí mismo.
+- **Cómo queda cargado:** el ítem muestra lo elegido debajo del nombre ("Puré · Jugoso"). Dos milanesas con distinta guarnición quedan en líneas separadas; iguales se suman.
+- **Cocina e impresión:** la pantalla de cocina lo muestra resaltado y la comanda impresa lo agrega en una línea aparte, en letra grande.
+- **Cobro, ticket y caja:** muestran el detalle. El precio de la línea ya incluye los extras.
+- **Carta QR:** debajo de cada producto con opciones aparece un resumen, por ejemplo "Guarnición: papas fritas, puré o ensalada".
+- **Reportes:** los productos se siguen contando por producto (la milanesa es una sola fila, con cualquier guarnición).
+
+### Propina
+- **Al cobrar:** debajo del total hay una fila **Propina** con tres botones: **No**, el **porcentaje sugerido** (10% de fábrica) o **$** para poner un monto. Si hay propina, aparece "A pagar con propina" y los medios de pago se completan con ese importe.
+- **No es venta:** se guarda aparte. "Vendido", ticket promedio y reportes no la suman.
+- **Ticket del cliente:** muestra Total, Propina y Total pagado.
+- **Caja:**
+  - "Cobrado por medio de pago" incluye la propina, porque es plata que entró.
+  - Abajo se ve cuánto fue de propinas y cuánto le toca a cada mozo.
+  - En el cierre se ven las propinas del turno por mozo. Si se reparten en efectivo antes de contar, se cargan como **retiro** para que la caja cuadre. El ticket de cierre también las lista.
+- **Reportes:**
+  - Las propinas se ven aparte y por mozo, en una columna nueva.
+  - En "Medios de pago" se descuentan, así esa sección muestra solo lo vendido.
+  - El Excel trae la propina de cada venta.
+- **Ajustes → Negocio:**
+  - registrar propinas sí o no (si se apaga, desaparece del cobro);
+  - el porcentaje sugerido;
+  - si la precuenta impresa muestra la propina sugerida (solo en mesas).
+
 ## 4. Escáner de códigos
 
 - **Android (Chrome):** usa el lector que trae el navegador. Es rápido y funciona sin conexión.
@@ -278,6 +312,7 @@ js/vendor/qrcode.mjs ← generador de QR (Kazuhiko Arase, licencia MIT)
 js/respaldo.js     ← respaldo completo en Excel
 js/firma.js        ← firma del desarrollador y contactos (WhatsApp, redes, Maps)
 js/pedidos.js      ← pedidos para llevar, delivery y venta rápida
+js/opciones.js     ← grupos de opciones (guarnición, punto, agregados)
 js/vistas/         ← salon, mesa, cobro, cocina, caja, productos, insumos, reportes,
                      reservas, compras, clientes, recordatorios, usuarios, ajustes
 ```
@@ -305,6 +340,7 @@ Problemas de los proyectos anteriores que esta versión no hereda:
 
 ## 8. Lo que sigue
 
+- **Versión 1.0:** turnos (mañana, tarde, noche) en Reportes, gastos fijos por categoría y resultado del mes
 - "Llamar al mozo" desde la carta QR
 - Fotos de los productos en la carta QR
 - Promos tipo "2 pintas + papas" o 2x1 en tragos

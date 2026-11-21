@@ -8,6 +8,7 @@ import { buscar } from "../buscar.js";
 import { abrirEscaner, escucharLectorUSB, precargarEscaner } from "../scanner.js";
 import { menuExcel, abrirImportador, descargarPlantilla, precargarExcel, ajustarCategoria } from "../importar.js";
 import { normalizar } from "../util.js";
+import { administrarOpciones, htmlGruposProducto, leerGruposProducto } from "../opciones.js";
 import { montarInsumos, editorReceta } from "./insumos.js";
 
 export function mount(root, { param } = {}) {
@@ -25,6 +26,7 @@ export function mount(root, { param } = {}) {
           <button class="btn" data-act="escanear">${icon("scan")} Escanear</button>
           <button class="btn" data-act="tanda">${icon("dinero")} Precios en tanda</button>
           <button class="btn" data-act="categorias">${icon("lista")} Categorías</button>
+          <button class="btn" data-act="opciones">${icon("lista")} Opciones</button>
           <button class="btn" data-act="excel">${icon("tabla")} Excel</button>
           <button class="btn btn-pri" data-act="nuevo">${icon("mas")} Producto</button>
         </div>
@@ -104,6 +106,7 @@ export function mount(root, { param } = {}) {
         <label class="switch"><input type="checkbox" id="eAct" ${p.activo !== false ? "checked" : ""}><span>Activo (lo pueden cargar los mozos)</span></label>
         <label class="switch"><input type="checkbox" id="eCarta" ${p.enCarta !== false ? "checked" : ""}><span>Mostrar en la carta QR de los clientes</span></label>
         <label class="switch"><input type="checkbox" id="eFav" ${p.favorito ? "checked" : ""}><span>Favorito: aparece primero en la venta rápida y en la comanda</span></label>
+        <div id="eGrupos">${htmlGruposProducto(p)}</div>
         <div id="eReceta">${receta.html}</div>
       </form>`,
       pie: `${nuevo ? "" : `<button class="btn btn-peligro" data-act="borrar">${icon("basura")}</button>`}<button type="submit" form="fProd" class="btn btn-pri">${nuevo ? "Crear" : "Guardar"}</button>`,
@@ -151,6 +154,7 @@ export function mount(root, { param } = {}) {
         activo: $("#eAct").checked,
         enCarta: $("#eCarta").checked,
         favorito: $("#eFav").checked,
+        grupos: leerGruposProducto($("#eGrupos"), p),
         descripcion: $("#eDesc").value.trim(),
         receta: receta.valor(),
       };
@@ -414,6 +418,7 @@ export function mount(root, { param } = {}) {
     else if (a.dataset.act === "asignar") asignarCodigos();
     else if (a.dataset.act === "tanda") tanda();
     else if (a.dataset.act === "categorias") gestionarCategorias();
+    else if (a.dataset.act === "opciones") administrarOpciones();
     else if (a.dataset.act === "excel") menuExcel();
     else if (a.dataset.act === "importar") abrirImportador();
     else if (a.dataset.act === "plantilla") descargarPlantilla();

@@ -10,6 +10,7 @@ import { imprimir, ticketComanda, ticketPrecuenta } from "../print.js";
 import { abrirCobro } from "./cobro.js";
 import { TIPOS_PEDIDO, esPedido, editarPedido, whatsappPedido, entregarPedido, descartarSiVacia } from "../pedidos.js";
 import { iconoContacto } from "../firma.js";
+import { gruposDe, elegirOpciones } from "../opciones.js";
 
 const NOTAS_RAPIDAS = ["Sin sal", "Sin hielo", "Bien cocido", "Jugoso", "Sin cebolla", "Para compartir", "Sale primero", "Apto celíaco"];
 
@@ -87,7 +88,7 @@ export function mount(root, { param: cid }) {
     if (nuevos.length) {
       html += `<h4 class="subtitulo">Por enviar</h4>` + nuevos.map((i) => `
         <div class="item nuevo">
-          <div class="item-txt"><b>${esc(i.desc)}</b>${i.nota ? `<span class="nota-item">${esc(i.nota)}</span>` : ""}<small>${fmt(i.precio)} c/u</small></div>
+          <div class="item-txt"><b>${esc(i.desc)}</b>${i.detalle ? `<span class="op-item">${esc(i.detalle)}</span>` : ""}${i.nota ? `<span class="nota-item">${esc(i.nota)}</span>` : ""}<small>${fmt(i.precio)} c/u</small></div>
           ${i.productoId === "envio" ? `<button class="btn-icono" data-act="menos" data-id="${esc(i.id)}" aria-label="Quitar el envío">${icon("basura")}</button>` : `<div class="stepper"><button data-act="menos" data-id="${esc(i.id)}" aria-label="Menos">${icon(i.cant > 1 ? "menos" : "basura")}</button><span>${i.cant}</span><button data-act="mas" data-id="${esc(i.id)}" aria-label="Más">${icon("mas")}</button></div>
           <button class="btn-icono" data-act="nota" data-id="${esc(i.id)}" aria-label="Nota">${icon("nota")}</button>`}
         </div>`).join("");
@@ -95,7 +96,7 @@ export function mount(root, { param: cid }) {
     if (enviados.length) {
       html += `<h4 class="subtitulo">Enviado</h4>` + enviados.map((i) => `
         <div class="item ${i.estado}">
-          <div class="item-txt"><b>${i.cant}× ${esc(i.desc)}</b>${i.nota ? `<span class="nota-item">${esc(i.nota)}</span>` : ""}
+          <div class="item-txt"><b>${i.cant}× ${esc(i.desc)}</b>${i.detalle ? `<span class="op-item">${esc(i.detalle)}</span>` : ""}${i.nota ? `<span class="nota-item">${esc(i.nota)}</span>` : ""}
             <small>${hora(i.enviado)} · ${fmt(i.precio * i.cant)}${i.estado === "anulado" && i.motivo ? ` · ${esc(i.motivo)}` : ""}</small></div>
           <span class="estado-item ${i.estado}">${i.sector === "ninguno" && i.estado === "entregado" ? "Servido" : ESTADOS_ITEM[i.estado] || i.estado}</span>
           ${i.estado !== "anulado" && puede("anular") ? `<button class="btn-icono" data-act="anular" data-id="${esc(i.id)}" aria-label="Anular">${icon("x")}</button>` : ""}
@@ -150,14 +151,26 @@ export function mount(root, { param: cid }) {
   }
 
   // ── Acciones ──
-  function agregar(p, cant = 1) {
+  // Si el producto tiene opciones (guarnición, punto, agregados), se eligen antes
+  async function agregar(p, cant = 1) {
+    if (gruposDe(p).length) {
+      const r = await elegirOpciones(p);
+      if (r) agregarItem(p, r.cant, r);
+      return;
+    }
+    agregarItem(p, cant);
+  }
+
+  function agregarItem(p, cant = 1, op = null) {
     const c = comanda();
     if (!c) return;
-    const ex = items().find((i) => i.estado === "nuevo" && i.productoId === p.id && !i.nota);
+    const detalle = op?.detalle || "";
+    const ex = items().find((i) => i.estado === "nuevo" && i.productoId === p.id && !i.nota && (i.detalle || "") === detalle);
     if (ex) db.update("items", ex.id, { cant: inc(cant) });
     else db.add("items", {
       comandaId: cid, mesaId: c.mesaId, mesaNombre: c.mesaNombre, tipo: c.tipo || "mesa", hora: c.hora || "",
-      productoId: p.id, desc: p.nombre, precio: Number(p.precio) || 0, cant,
+      productoId: p.id, desc: p.nombre, precio: op ? op.precio : Number(p.precio) || 0, cant,
+      ...(op ? { opciones: op.opciones, detalle } : {}),
       nota: "", sector: p.sector || "cocina", estado: "nuevo", cerrado: false,
       mozo: c.mozo || S.perfil.nombre, mozoUid: c.mozoUid || S.user.uid, cargadoPor: S.perfil.nombre, ts: Date.now(),
     });

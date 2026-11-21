@@ -131,6 +131,7 @@ function item(p) {
   return `<article class="item ${p.a ? "agotado" : ""}">
     <div class="item-linea"><h3>${esc(p.n)}</h3><span class="puntos"></span><span class="precio">${p.a ? "Agotado" : precio(p.p)}</span></div>
     ${p.d ? `<p class="desc">${esc(p.d)}</p>` : ""}
+    ${p.o ? `<p class="desc op">${esc(p.o)}</p>` : ""}
   </article>`;
 }
 

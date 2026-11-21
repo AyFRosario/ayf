@@ -47,6 +47,7 @@ export function ticketComanda({ mesa, mozo, comensales, items, ts = Date.now(), 
     r.push(L());
     for (const i of its) {
       r.push(T(`${i.cant} x ${i.desc}`, { grande: true }));
+      if (i.detalle) r.push(T(`  > ${i.detalle}`, { neg: true, grande: true }));
       if (i.nota) r.push(T(`  > ${i.nota}`, { neg: true }));
     }
   }
@@ -59,6 +60,7 @@ function lineasItems(items) {
   const r = [];
   for (const i of items) {
     r.push(T(i.desc));
+    if (i.detalle) r.push(T(`  ${i.detalle}`));
     r.push(F(`  ${i.cant} x ${fmt(i.precio)}`, fmt(i.cant * i.precio)));
   }
   return r;
@@ -82,7 +84,11 @@ export function ticketPrecuenta({ mesa, mozo, items, total, pedido = null }) {
     ...lineasCliente(pedido?.tipo, pedido?.cliente, pedido?.hora),
     F(mesa, hora(Date.now())), T(`Atendió: ${mozo || ""}`), L(),
     ...lineasItems(items), L(),
-    F("TOTAL", fmt(total), { neg: true, grande: true }), E(1),
+    F("TOTAL", fmt(total), { neg: true, grande: true }),
+    ...(S.config.propina !== false && S.config.propinaPrecuenta && !pedido
+      ? [F(`Propina sugerida (${Number(S.config.propinaPct) || 10}%)`, fmt(Math.round(total * (Number(S.config.propinaPct) || 10) / 100))), F("Total con propina", fmt(total + Math.round(total * (Number(S.config.propinaPct) || 10) / 100)))]
+      : []),
+    E(1),
     T("No válido como factura", { al: "c" }), E(3),
   ];
 }
@@ -95,7 +101,9 @@ export function ticketVenta(v) {
     F("Subtotal", fmt(v.subtotal)),
   ];
   if (v.descuento?.monto) r.push(F(`Descuento${v.descuento.tipo === "pct" ? ` ${v.descuento.valor}%` : ""}`, "-" + fmt(v.descuento.monto)));
-  r.push(F("TOTAL", fmt(v.total), { neg: true, grande: true }), L());
+  r.push(F("TOTAL", fmt(v.total), { neg: true, grande: true }));
+  if (v.propina) r.push(F("Propina", fmt(v.propina)), F("Total pagado", fmt(v.total + v.propina), { neg: true }));
+  r.push(L());
   for (const p of v.pagos || []) r.push(F(p.medio === "cuenta" && p.clienteNombre ? `Cta. cte. ${p.clienteNombre}` : MEDIOS[p.medio] || p.medio, fmt(p.monto)));
   if (v.vuelto) r.push(F("Su vuelto", fmt(v.vuelto)));
   r.push(E(1), T("No válido como factura", { al: "c" }));
@@ -108,11 +116,16 @@ export function ticketCierre(j, res) {
     ...encabezado("CIERRE DE CAJA"),
     F("Apertura", fechaHora(j.aperturaTs)), F("Cierre", fechaHora(j.cierreTs || Date.now())),
     F("Abrió", j.apertura?.usuario || ""), F("Cerró", j.cierre?.usuario || ""), L(),
-    T("VENTAS POR MEDIO DE PAGO", { neg: true }),
+    T("COBRADO POR MEDIO DE PAGO", { neg: true }),
   ];
   for (const [m, monto] of Object.entries(res.porMedio)) if (monto) r.push(F(MEDIOS[m] || m, fmt(monto)));
-  r.push(F("Total vendido", fmt(res.total), { neg: true }), F("Cantidad de ventas", String(res.cant)), L());
-  r.push(T("EFECTIVO", { neg: true }), F("Fondo inicial", fmt(j.apertura?.fondo || 0)), F("+ Ventas en efectivo", fmt(res.porMedio.efectivo || 0)));
+  r.push(F("Total vendido", fmt(res.total), { neg: true }), F("Cantidad de ventas", String(res.cant)));
+  if (res.propinas) {
+    r.push(F("Propinas cobradas", fmt(res.propinas), { neg: true }));
+    for (const [mozo, monto] of Object.entries(res.propinasMozo || {})) r.push(F(`  ${mozo}`, fmt(monto)));
+  }
+  r.push(L());
+  r.push(T("EFECTIVO", { neg: true }), F("Fondo inicial", fmt(j.apertura?.fondo || 0)), F("+ Cobrado en efectivo", fmt(res.porMedio.efectivo || 0)));
   if (res.ingresos) r.push(F("+ Ingresos", fmt(res.ingresos)));
   if (res.gastosEf) r.push(F("- Gastos", fmt(res.gastosEf)));
   if (res.retiros) r.push(F("- Retiros", fmt(res.retiros)));

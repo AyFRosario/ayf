@@ -86,7 +86,7 @@ export function mount(root) {
         <span class="kds-tiempo">${icon("reloj")} ${m} min</span>
       </header>
       <ul>${g.items.map((i) => `<li class="${i.estado}" data-act="item" data-id="${esc(i.id)}">
-        <span class="kds-cant">${i.cant}</span><span class="kds-desc">${esc(i.desc)}${i.nota ? `<em>${esc(i.nota)}</em>` : ""}</span>
+        <span class="kds-cant">${i.cant}</span><span class="kds-desc">${esc(i.desc)}${i.detalle ? `<strong class="kds-op">${esc(i.detalle)}</strong>` : ""}${i.nota ? `<em>${esc(i.nota)}</em>` : ""}</span>
         <span class="kds-est">${i.estado === "preparando" ? "•" : i.estado === "listo" ? icon("check") : ""}</span></li>`).join("")}</ul>
       <footer>
         <small>${hora(g.enviado)}</small>
